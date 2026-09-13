@@ -468,6 +468,12 @@
         </p>
       </div>
 
+      <div class="card" id="remindersCard">
+        <div class="section-title" style="margin-bottom:8px;">Daily reminders</div>
+        <p class="small" id="remindersDesc" style="margin-bottom:12px;">Checking support…</p>
+        <button class="btn btn-primary" id="remindersBtn" type="button" hidden>Enable reminders</button>
+      </div>
+
       <div class="card">
         <div class="section-title" style="margin-bottom:4px;">Standing habits, every day</div>
         <div class="kv"><div class="k">Hydration</div><div class="v">~2–2.5 L/day + sweat losses</div></div>
@@ -1208,6 +1214,97 @@
       navigator.serviceWorker.register("sw.js").catch(function(){});
     });
   }
+
+  // ---------- push reminders (8am / 8pm) ----------
+  var WORKER_URL = "https://head-clear-reminders.benjasondixon.workers.dev";
+  var VAPID_PUBLIC_KEY = "BM_9NQhAYZrDlwb5L4WBEepLa-_ZsMzsEXcl1yW7QRj9QctOopQ5v7JeUtCVIPLvOSqS9LVKyLOZyotdm69EQek";
+
+  function urlBase64ToUint8Array(base64String){
+    var padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    var raw = atob(base64);
+    var output = new Uint8Array(raw.length);
+    for(var i=0;i<raw.length;i++) output[i] = raw.charCodeAt(i);
+    return output;
+  }
+  function isStandaloneMode(){
+    return window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+  }
+
+  function refreshReminderUI(){
+    var btn = document.getElementById("remindersBtn");
+    var desc = document.getElementById("remindersDesc");
+    if(!btn) return;
+    if(!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)){
+      desc.textContent = "Push notifications aren't supported in this browser.";
+      btn.hidden = true;
+      return;
+    }
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if(isIOS && !isStandaloneMode()){
+      desc.textContent = "Add Head Clear to your Home Screen first, then open it from there to enable reminders.";
+      btn.hidden = true;
+      return;
+    }
+    btn.hidden = false;
+    navigator.serviceWorker.ready.then(function(reg){
+      return reg.pushManager.getSubscription();
+    }).then(function(sub){
+      if(sub){
+        desc.textContent = "Reminders are on — 8am and 8pm daily.";
+        btn.textContent = "Turn off reminders";
+        btn.onclick = disableReminders;
+      } else {
+        desc.textContent = "Get a push notification at 8am and 8pm to check in.";
+        btn.textContent = "Enable reminders";
+        btn.onclick = enableReminders;
+      }
+    }).catch(function(){
+      desc.textContent = "Couldn't check reminder status.";
+    });
+  }
+
+  function enableReminders(){
+    var btn = document.getElementById("remindersBtn");
+    var desc = document.getElementById("remindersDesc");
+    btn.disabled = true;
+    Notification.requestPermission().then(function(perm){
+      if(perm !== "granted"){
+        desc.textContent = "Notifications permission was not granted.";
+        btn.disabled = false;
+        return null;
+      }
+      return navigator.serviceWorker.ready.then(function(reg){
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      }).then(function(sub){
+        return fetch(WORKER_URL + "/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sub)
+        });
+      }).then(function(){ refreshReminderUI(); });
+    }).catch(function(){
+      desc.textContent = "Couldn't enable reminders — try again.";
+    }).finally(function(){ btn.disabled = false; });
+  }
+
+  function disableReminders(){
+    var btn = document.getElementById("remindersBtn");
+    btn.disabled = true;
+    navigator.serviceWorker.ready.then(function(reg){
+      return reg.pushManager.getSubscription();
+    }).then(function(sub){
+      if(sub) return sub.unsubscribe();
+    }).then(function(){
+      fetch(WORKER_URL + "/unsubscribe", { method: "POST" }).catch(function(){});
+      refreshReminderUI();
+    }).catch(function(){}).finally(function(){ btn.disabled = false; });
+  }
+
+  refreshReminderUI();
 
   // roll day over if the app stays open across midnight
   setInterval(function(){

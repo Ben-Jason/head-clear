@@ -33,9 +33,10 @@ export default {
     }
 
     if (url.pathname === "/subscribe" && request.method === "POST") {
-      if (env.SETUP_KEY && request.headers.get("X-Setup-Key") !== env.SETUP_KEY) {
-        return json({ error: "unauthorized" }, 401);
-      }
+      // No auth here by design: this is a single-user personal worker and the
+      // client is a public static page, so any key shipped to it would be
+      // visible anyway. Worst case is someone overwrites the one stored
+      // subscription with their own device.
       const subscription = await request.json();
       if (!subscription || !subscription.endpoint) {
         return json({ error: "invalid subscription" }, 400);

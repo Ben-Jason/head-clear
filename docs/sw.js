@@ -39,3 +39,30 @@ self.addEventListener("fetch", (e) => {
     })
   );
 });
+
+// ---------- push reminders ----------
+self.addEventListener("push", (e) => {
+  let data = { title: "Head Clear", body: "Time for your check-in.", tag: "headclear" };
+  try { if (e.data) data = Object.assign(data, e.data.json()); } catch (err) {}
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      tag: data.tag,
+      icon: "./icons/icon-192.png",
+      badge: "./icons/icon-192.png",
+      renotify: true,
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow("./index.html");
+    })
+  );
+});

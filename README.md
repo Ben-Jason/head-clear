@@ -4,7 +4,7 @@ A concussion-recovery companion app — daily rhythm checklist, exercise-dose
 symptom scoring, and a return-to-sport ladder tracker. Installable to an
 iPhone home screen as a PWA, works offline, all data stays on-device.
 
-Live: https://REPLACE-ME.github.io/head-clear/
+Live: https://ben-jason.github.io/head-clear/
 
 `docs/` — the app itself (served via GitHub Pages).
 `worker/` — a small Cloudflare Worker that sends the twice-daily reminder
