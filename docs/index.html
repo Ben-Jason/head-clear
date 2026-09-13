@@ -78,16 +78,29 @@
     margin:0; background:var(--bg); color:var(--ink);
     font-family:'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     line-height:1.45; -webkit-font-smoothing:antialiased; overscroll-behavior-y:none;
+    overflow:hidden; /* #app owns the one scrolling region (main) — see below */
   }
   h1,h2,h3{font-family:'Fraunces', Georgia, serif; text-wrap:balance; margin:0;}
   button{font-family:inherit;}
   .num{font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums;}
 
-  #app{max-width:520px; margin-inline:auto; min-height:100%; display:flex; flex-direction:column;}
+  /* App shell: header and nav are normal flex items, not position:fixed.
+     iOS Safari's dynamic toolbar makes `100vh` + `position:fixed` bottom
+     bars unreliable — short pages (Exercise/History) left a gap of page
+     background showing under the tab bar because the fixed bar wasn't
+     re-anchored to the correct viewport edge. Using 100dvh on a flex
+     column, with only <main> scrolling, sidesteps that whole bug class:
+     nav is simply the last flex item, always flush with the shell's
+     bottom edge regardless of content height. */
+  #app{
+    max-width:520px; margin-inline:auto;
+    height:100vh; height:100dvh;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
 
   /* header */
   header.top{
-    position:sticky; top:0; z-index:5;
+    flex-shrink:0;
     padding:calc(14px + var(--safe-t)) 18px 12px;
     background:color-mix(in srgb, var(--bg) 88%, transparent);
     backdrop-filter:blur(10px);
@@ -109,7 +122,7 @@
   }
   .sos-btn svg{width:14px; height:14px;}
 
-  main{flex:1; padding:16px 16px calc(96px + var(--safe-b));}
+  main{flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:16px 16px calc(20px + var(--safe-b));}
   .panel{display:none; flex-direction:column; gap:16px;}
   .panel.active{display:flex;}
 
@@ -306,9 +319,9 @@
     margin:-10px -6px -10px -4px; -webkit-tap-highlight-color:rgba(255,255,255,.15);
   }
 
-  /* bottom nav */
+  /* bottom nav — a normal flex item (see #app), not position:fixed */
   nav.tabbar{
-    position:fixed; left:0; right:0; bottom:0; z-index:15;
+    flex-shrink:0;
     background:var(--surface);
     border-top:1px solid var(--line);
     padding:8px 10px calc(8px + var(--safe-b));
