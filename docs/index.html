@@ -172,6 +172,25 @@
   .check-item.item-hidden .txt b{color:var(--ink-faint);}
   .check-item .box.eyebox{border-style:dashed;}
 
+  /* history: streaks + heatmap */
+  .stat-row{display:flex;}
+  .stat-tile{flex:1; text-align:center; padding:0 4px;}
+  .stat-tile b{display:block; font-size:25px; font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--accent-ink);}
+  .stat-tile span{font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.04em;}
+  .badge-row{display:flex; gap:7px; flex-wrap:wrap; margin-top:14px; padding-top:14px; border-top:1px solid var(--line);}
+  .streak-badge{
+    display:flex; align-items:center; gap:4px; padding:6px 11px; border-radius:100px;
+    font-size:11.5px; font-weight:700; background:var(--surface-2); color:var(--ink-faint);
+  }
+  .streak-badge.earned{background:var(--good-soft); color:var(--good);}
+  .heatmap-wrap{overflow-x:auto; padding-bottom:2px; margin:0 -2px;}
+  .heatmap{display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,1fr); gap:3px; width:max-content; padding:2px;}
+  .heat-cell{width:13px; height:13px; border-radius:3px; background:var(--surface-2);}
+  .heat-cell.future{background:transparent;}
+  .heatmap-legend{display:flex; align-items:center; gap:6px; margin-top:10px; font-size:10.5px; color:var(--ink-faint);}
+  .legend-cells{display:flex; gap:3px;}
+  .legend-cells .heat-cell{width:11px; height:11px;}
+
   /* history */
   .history-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -290,7 +309,7 @@
   /* bottom nav */
   nav.tabbar{
     position:fixed; left:0; right:0; bottom:0; z-index:15;
-    background:color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter:blur(14px);
+    background:var(--surface);
     border-top:1px solid var(--line);
     padding:8px 10px calc(8px + var(--safe-b));
     display:flex; justify-content:center;
@@ -306,8 +325,11 @@
   :root[data-theme="dark"] nav.tabbar button.active{color:var(--accent);}
 
   @media (prefers-reduced-motion: no-preference){
-    .panel.active{animation:fade .18s ease both;}
-    @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+    /* opacity-only: a transform here would promote the panel to its own
+       compositing layer right under nav.tabbar's blur, which is what was
+       causing a seam to flash in under the tab bar on every tab switch */
+    .panel.active{animation:fade .16s ease both;}
+    @keyframes fade{from{opacity:0;} to{opacity:1;}}
   }
 
   /* modal */
@@ -448,6 +470,17 @@
 
     <!-- HISTORY -->
     <section class="panel" id="panel-history">
+      <div class="card">
+        <div class="stat-row" id="streakStats"></div>
+        <div class="badge-row" id="streakBadges"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-bottom:10px;">Habit streak</div>
+        <div class="heatmap-wrap"><div class="heatmap" id="heatmap"></div></div>
+        <div class="heatmap-legend"><span>Less</span><div class="legend-cells" id="legendCells"></div><span>More</span></div>
+      </div>
+
       <div class="card">
         <div class="section-title" style="margin-bottom:4px;">Day by day</div>
         <p class="small">Tap a day to see everything logged for it — checklist, symptoms, journal, doses.</p>
@@ -625,6 +658,8 @@
     // without forcing every checkbox tap to re-render the entire app
     if(typeof renderStatus==="function") renderStatus();
     if(typeof renderHistory==="function") renderHistory();
+    if(typeof renderStreaks==="function") renderStreaks();
+    if(typeof renderHeatmap==="function") renderHeatmap();
   }
 
   function emptyDay(){
@@ -1030,6 +1065,124 @@
     var d = new Date(key+"T00:00:00");
     return d.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'});
   }
+
+  // ---------- streaks + heatmap (gamifying the daily checklist) ----------
+  var STREAK_MILESTONES = [3, 7, 14, 30];
+
+  function totalVisibleItemCount(){
+    var n = 0;
+    RHYTHM.forEach(function(block){
+      block.items.forEach(function(item){ if(!isHiddenRhythm(block.key, item.id)) n++; });
+    });
+    STANDING.forEach(function(item){ if(!isHiddenStanding(item.id)) n++; });
+    return n;
+  }
+  function dayCompletionRatio(day){
+    var total = totalVisibleItemCount();
+    if(total<=0 || !day) return 0;
+    return Math.min(1, dayCompletedCount(day)/total);
+  }
+  function heatLevel(ratio){
+    if(ratio<=0) return 0;
+    if(ratio<0.25) return 1;
+    if(ratio<0.5) return 2;
+    if(ratio<0.75) return 3;
+    return 4;
+  }
+  function heatColor(level){
+    var pct = [0,25,50,75,100][level];
+    return "color-mix(in srgb, var(--good) "+pct+"%, var(--surface-2))";
+  }
+
+  function habitStreaks(){
+    // "engaged" day = at least one checklist item completed that day
+    var current = 0;
+    var cd = new Date();
+    for(var i=0;i<400;i++){
+      var key = dateKey(cd);
+      var day = state.days[key];
+      var has = day && dayCompletedCount(day) > 0;
+      if(!has){
+        if(key===todayKey()){ cd.setDate(cd.getDate()-1); continue; } // today just hasn't happened yet
+        break;
+      }
+      current++;
+      cd.setDate(cd.getDate()-1);
+    }
+    var best = 0, run = 0, prevDate = null;
+    Object.keys(state.days).sort().forEach(function(key){
+      var day = state.days[key];
+      if(dayCompletedCount(day) <= 0){ run = 0; prevDate = null; return; }
+      var thisDate = new Date(key+"T00:00:00");
+      run = (prevDate && Math.round((thisDate-prevDate)/86400000)===1) ? run+1 : 1;
+      if(run>best) best = run;
+      prevDate = thisDate;
+    });
+    best = Math.max(best, current);
+    return { current: current, best: best };
+  }
+
+  function renderStreaks(){
+    var statRoot = document.getElementById("streakStats");
+    if(!statRoot) return;
+    var s = habitStreaks();
+    statRoot.innerHTML =
+      '<div class="stat-tile"><b></b><span>Current streak</span></div>'+
+      '<div class="stat-tile"><b></b><span>Best streak</span></div>'+
+      '<div class="stat-tile"><b></b><span>Days logged</span></div>';
+    var tiles = statRoot.querySelectorAll(".stat-tile b");
+    tiles[0].textContent = s.current;
+    tiles[1].textContent = s.best;
+    tiles[2].textContent = dayCount();
+
+    var badgeRoot = document.getElementById("streakBadges");
+    badgeRoot.innerHTML = "";
+    STREAK_MILESTONES.forEach(function(m){
+      var earned = s.best >= m;
+      var b = document.createElement("div");
+      b.className = "streak-badge"+(earned?" earned":"");
+      b.textContent = (earned?"🔥 ":"") + m + "-day streak";
+      badgeRoot.appendChild(b);
+    });
+  }
+
+  function renderHeatmap(){
+    var root = document.getElementById("heatmap");
+    if(!root) return;
+    root.innerHTML = "";
+    var legend = document.getElementById("legendCells");
+    if(legend && !legend.children.length){
+      for(var L=0; L<5; L++){
+        var lc = document.createElement("div");
+        lc.className = "heat-cell";
+        lc.style.background = heatColor(L);
+        legend.appendChild(lc);
+      }
+    }
+    var today = new Date(); today.setHours(0,0,0,0);
+    var start = new Date(today);
+    start.setDate(start.getDate() - 83); // ~12 weeks back
+    start.setDate(start.getDate() - start.getDay()); // back up to the Sunday
+    var end = new Date(today);
+    end.setDate(end.getDate() + (6 - end.getDay())); // forward to the Saturday
+    for(var d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
+      var cell = document.createElement("div");
+      if(d > today){
+        cell.className = "heat-cell future";
+      } else {
+        var key = dateKey(d);
+        var day = state.days[key];
+        cell.className = "heat-cell";
+        cell.style.background = heatColor(day ? heatLevel(dayCompletionRatio(day)) : 0);
+        if(day){
+          cell.style.cursor = "pointer";
+          cell.title = key;
+          (function(k){ cell.addEventListener("click", function(){ showDayDetail(k); }); })(key);
+        }
+      }
+      root.appendChild(cell);
+    }
+  }
   function renderHistory(){
     var root = document.getElementById("historyList");
     root.innerHTML = "";
@@ -1197,6 +1350,8 @@
     renderLadderActions();
     renderLadderHistory();
     renderHistory();
+    renderStreaks();
+    renderHeatmap();
     switchTab(activeTab);
   }
   renderAll();
