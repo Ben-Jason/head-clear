@@ -69,6 +69,10 @@
   }
 
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  /* the `hidden` attribute must always win, even over an element's own
+     display:flex/grid rule elsewhere in this file (e.g. #installBanner,
+     .btn) — without this, toggling .hidden=true in JS has no visual effect */
+  [hidden]{display:none !important;}
   html,body{height:100%;}
   body{
     margin:0; background:var(--bg); color:var(--ink);
