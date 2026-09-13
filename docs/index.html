@@ -1,0 +1,1218 @@
+<meta charset="utf-8">
+<title>Head Clear</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#1c3d35">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Head Clear">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+
+<style>
+  :root{
+    --bg:#f2efe4;
+    --surface:#fbfaf4;
+    --surface-2:#eae4d3;
+    --ink:#20302a;
+    --ink-soft:#57645c;
+    --ink-faint:#8d978d;
+    --line:#ddd5c1;
+    --accent:#2c6b57;
+    --accent-ink:#163127;
+    --accent-soft:#e1ece3;
+    --good:#2f7d4f;
+    --good-soft:#e2eee1;
+    --warn:#af6317;
+    --warn-soft:#f5e5cf;
+    --warn-ink:#7a4310;
+    --danger:#ae2e21;
+    --danger-soft:#fae2dd;
+    --danger-ink:#7c1f15;
+    --shadow:0 1px 2px rgba(24,32,28,.06), 0 10px 24px -18px rgba(24,32,28,.28);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#141a17;
+      --surface:#1c2320;
+      --surface-2:#242c27;
+      --ink:#eef1ec;
+      --ink-soft:#a9b3ac;
+      --ink-faint:#71796f;
+      --line:#333c35;
+      --accent:#6fbca2;
+      --accent-ink:#bfe8d6;
+      --accent-soft:#22322b;
+      --good:#6fbc86;
+      --good-soft:#20302a;
+      --warn:#e0a15c;
+      --warn-soft:#3a2c1a;
+      --warn-ink:#f3cd9c;
+      --danger:#e2867a;
+      --danger-soft:#3a201c;
+      --danger-ink:#f4c2b8;
+      --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 24px -18px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141a17; --surface:#1c2320; --surface-2:#242c27; --ink:#eef1ec; --ink-soft:#a9b3ac;
+    --ink-faint:#71796f; --line:#333c35; --accent:#6fbca2; --accent-ink:#bfe8d6; --accent-soft:#22322b;
+    --good:#6fbc86; --good-soft:#20302a; --warn:#e0a15c; --warn-soft:#3a2c1a; --warn-ink:#f3cd9c;
+    --danger:#e2867a; --danger-soft:#3a201c; --danger-ink:#f4c2b8;
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 24px -18px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height:1.45; -webkit-font-smoothing:antialiased; overscroll-behavior-y:none;
+  }
+  h1,h2,h3{font-family:'Fraunces', Georgia, serif; text-wrap:balance; margin:0;}
+  button{font-family:inherit;}
+  .num{font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums;}
+
+  #app{max-width:520px; margin-inline:auto; min-height:100%; display:flex; flex-direction:column;}
+
+  /* header */
+  header.top{
+    position:sticky; top:0; z-index:5;
+    padding:calc(14px + var(--safe-t)) 18px 12px;
+    background:color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .mark{
+    width:30px; height:30px; border-radius:9px; background:var(--accent-ink); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .brand .mark svg{width:17px; height:17px;}
+  .brand .name{font-size:17px; font-weight:600; color:var(--ink);}
+  .brand .date{font-size:11.5px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; letter-spacing:.02em;}
+  .sos-btn{
+    display:flex; align-items:center; gap:5px; background:var(--danger-soft); color:var(--danger-ink);
+    border:1px solid color-mix(in srgb, var(--danger) 35%, var(--line)); border-radius:100px;
+    padding:7px 12px 7px 10px; font-size:12.5px; font-weight:700; letter-spacing:.02em;
+  }
+  .sos-btn svg{width:14px; height:14px;}
+
+  main{flex:1; padding:16px 16px calc(96px + var(--safe-b));}
+  .panel{display:none; flex-direction:column; gap:16px;}
+  .panel.active{display:flex;}
+
+  /* generic card */
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:16px 17px; box-shadow:var(--shadow);
+  }
+  .card + .card{margin-top:0;}
+  .stack{display:flex; flex-direction:column; gap:16px;}
+  .section-title{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.08em; font-weight:700;
+    color:var(--ink-faint); font-family:'Public Sans',sans-serif; margin:2px 2px 0;
+  }
+
+  /* phase / status hero */
+  .status-card{
+    background:linear-gradient(155deg, var(--accent-ink), var(--accent));
+    color:#f4f2e8; border-radius:18px; padding:20px 20px 18px; box-shadow:var(--shadow); border:none;
+  }
+  .status-card .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; opacity:.8; font-weight:600;}
+  .status-card h1{font-size:23px; font-weight:600; color:#fbfaf4; margin-top:4px;}
+  .status-row{display:flex; gap:18px; margin-top:14px;}
+  .status-stat b{display:block; font-size:22px; font-family:'IBM Plex Mono',monospace; font-weight:600;}
+  .status-stat span{font-size:11.5px; opacity:.78; display:block; margin-top:2px;}
+
+  .assess-banner{
+    background:var(--warn-soft); border:1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
+    border-radius:14px; padding:14px 16px; display:flex; gap:12px;
+  }
+  .assess-banner svg{width:18px; height:18px; flex-shrink:0; color:var(--warn-ink); margin-top:1px;}
+  .assess-banner b{color:var(--warn-ink); font-size:14px; display:block; margin-bottom:3px;}
+  .assess-banner p{margin:0; font-size:13px; color:var(--ink-soft);}
+  .assess-banner .ack{
+    margin-top:8px; font-size:12px; font-weight:700; color:var(--warn-ink);
+    background:none; border:none; padding:0; text-decoration:underline; text-underline-offset:2px;
+  }
+
+  /* checklist */
+  .block-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px;}
+  .block-head .label{font-size:14.5px; font-weight:700; color:var(--ink);}
+  .block-head .time{font-size:11px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:.05em;}
+  .check-list{display:flex; flex-direction:column; gap:2px;}
+  .check-item{
+    display:grid; grid-template-columns:24px 1fr; gap:11px; align-items:start;
+    padding:9px 4px; border-radius:10px; cursor:pointer; text-align:left; background:none; border:none; width:100%;
+  }
+  .check-item:active{background:var(--surface-2);}
+  .box{
+    width:22px; height:22px; border-radius:7px; border:1.5px solid var(--line); margin-top:1px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--surface);
+  }
+  .check-item.done .box{background:var(--accent); border-color:var(--accent);}
+  .box svg{width:13px; height:13px; opacity:0; color:#fff;}
+  .check-item.done .box svg{opacity:1;}
+  .check-item .txt b{font-size:14px; font-weight:600; display:block; color:var(--ink);}
+  .check-item.done .txt b{color:var(--ink-soft); text-decoration:line-through; text-decoration-color:var(--ink-faint); text-decoration-thickness:1.5px;}
+  .check-item .txt .why{font-size:12.5px; color:var(--ink-faint); margin-top:1px; display:block;}
+  .check-item.item-hidden{opacity:.5;}
+  .check-item.item-hidden .txt b{color:var(--ink-faint);}
+  .check-item .box.eyebox{border-style:dashed;}
+
+  /* history */
+  .history-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--surface); border:1px solid var(--line); border-radius:13px;
+    padding:12px 14px; width:100%; text-align:left; box-shadow:var(--shadow);
+  }
+  .hist-date{font-size:13.5px; font-weight:600; color:var(--ink); flex:1; min-width:0;}
+  .hist-mid{display:flex; align-items:center; gap:6px; flex-shrink:0;}
+  .hist-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .hist-score{font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; color:var(--ink-soft); width:24px; text-align:right;}
+  .hist-meta{font-size:11.5px; color:var(--ink-faint); flex-shrink:0; text-align:right; min-width:64px;}
+  .detail-group{display:flex; flex-direction:column; gap:3px;}
+  .detail-line{font-size:13px; color:var(--ink-soft); line-height:1.5;}
+
+  /* symptom scale */
+  .scale-row{display:flex; gap:5px;}
+  .scale-btn{
+    flex:1; aspect-ratio:1; border-radius:9px; border:1px solid var(--line); background:var(--surface-2);
+    font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:13px; color:var(--ink-soft);
+  }
+  .scale-btn.on{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .scale-legend{display:flex; justify-content:space-between; font-size:10.5px; color:var(--ink-faint); margin-top:6px; padding:0 2px;}
+
+  textarea.journal{
+    width:100%; border:1px solid var(--line); border-radius:12px; background:var(--surface-2);
+    padding:11px 12px; font:inherit; font-size:14px; color:var(--ink); resize:vertical; min-height:64px;
+  }
+  textarea.journal:focus{outline:2px solid var(--accent); outline-offset:1px;}
+
+  .sparkline{display:flex; align-items:flex-end; gap:5px; height:44px; margin-top:10px;}
+  .spark-bar{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; justify-content:flex-end; height:100%;}
+  .spark-fill{width:100%; border-radius:4px 4px 2px 2px; background:var(--surface-2); min-height:4px;}
+  .spark-day{font-size:9px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace;}
+
+  /* rule box */
+  .rule-box{background:var(--accent-soft); border:1px solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-radius:14px; padding:14px 16px; font-size:13.5px; color:var(--ink);}
+  .rule-box b{color:var(--accent-ink);}
+
+  /* dose form + list */
+  .field{display:flex; flex-direction:column; gap:6px;}
+  .field label{font-size:12px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em;}
+  .seg{display:flex; gap:6px; flex-wrap:wrap;}
+  .seg button{
+    padding:8px 13px; border-radius:100px; border:1px solid var(--line); background:var(--surface-2);
+    font-size:13px; font-weight:600; color:var(--ink-soft);
+  }
+  .seg button.on{background:var(--accent-ink); border-color:var(--accent-ink); color:#fbfaf4;}
+  input[type=number]{
+    border:1px solid var(--line); border-radius:10px; background:var(--surface-2); padding:9px 11px;
+    font:inherit; font-size:14px; color:var(--ink); width:100%;
+  }
+  .btn{
+    display:flex; align-items:center; justify-content:center; gap:6px; border-radius:12px; border:none;
+    padding:12px 16px; font-size:14.5px; font-weight:700; width:100%;
+  }
+  .btn-primary{background:var(--accent-ink); color:#fbfaf4;}
+  .btn-ghost{background:var(--surface-2); color:var(--ink);}
+  .btn-sm{padding:8px 13px; font-size:12.5px; width:auto; border-radius:10px;}
+  .btn[disabled]{opacity:.45;}
+
+  .dose-item{border:1px solid var(--line); border-radius:13px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;}
+  .dose-top{display:flex; justify-content:space-between; align-items:baseline;}
+  .dose-top b{font-size:14px;}
+  .dose-top span{font-size:11px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace;}
+  .dose-scores{display:flex; gap:14px; font-size:12.5px; color:var(--ink-soft);}
+  .dose-scores b{font-family:'IBM Plex Mono',monospace; color:var(--ink); font-size:14px;}
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:4px 9px; border-radius:100px; width:fit-content;}
+  .badge.good{background:var(--good-soft); color:var(--good);}
+  .badge.warn{background:var(--warn-soft); color:var(--warn-ink);}
+  .badge.wait{background:var(--surface-2); color:var(--ink-faint);}
+  .mini-actions{display:flex; gap:8px;}
+
+  /* ladder */
+  .ladder{display:flex; flex-direction:column; gap:0;}
+  .rung{display:grid; grid-template-columns:30px 1fr; gap:12px; padding:11px 2px; position:relative;}
+  .rung .dotcol{display:flex; flex-direction:column; align-items:center;}
+  .rung .dot{width:26px; height:26px; border-radius:50%; background:var(--surface-2); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:11.5px; font-weight:700; color:var(--ink-faint); flex-shrink:0; z-index:1;}
+  .rung .connector{width:1.5px; flex:1; background:var(--line); margin-top:2px;}
+  .rung:last-child .connector{display:none;}
+  .rung.done .dot{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .rung.current .dot{background:var(--accent-ink); border-color:var(--accent-ink); color:#fbfaf4; box-shadow:0 0 0 4px var(--accent-soft);}
+  .rung .rtxt{padding-top:1px;}
+  .rung .rname{font-size:14px; font-weight:700; color:var(--ink);}
+  .rung.done .rname, .rung.pending .rname{color:var(--ink-soft); font-weight:600;}
+  .rung .rdetail{font-size:12.5px; color:var(--ink-faint); margin-top:1px;}
+
+  .kv{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-top:1px solid var(--line); font-size:13.5px;}
+  .kv:first-child{border-top:none;}
+  .kv .k{color:var(--ink-soft);}
+  .kv .v{font-family:'IBM Plex Mono',monospace; font-weight:600;}
+  .kv .v.warn{color:var(--warn-ink);}
+  .kv .v.good{color:var(--good);}
+
+  .redflag-list{display:flex; flex-direction:column; gap:8px; margin-top:2px;}
+  .redflag-item{display:flex; gap:10px; align-items:flex-start; font-size:13.5px;}
+  .redflag-item svg{width:15px; height:15px; color:var(--danger); flex-shrink:0; margin-top:2px;}
+
+  p.small{font-size:12.5px; color:var(--ink-faint); margin:0; line-height:1.6;}
+  .divider{height:1px; background:var(--line); border:none; margin:0;}
+
+  /* install banner */
+  #installBanner{
+    position:fixed; left:12px; right:12px; bottom:calc(80px + var(--safe-b)); z-index:20; max-width:496px; margin-inline:auto;
+    background:var(--accent-ink); color:#fbfaf4; border-radius:16px; padding:14px 15px; box-shadow:var(--shadow);
+    display:flex; gap:12px; align-items:flex-start;
+  }
+  #installBanner svg{width:20px; height:20px; flex-shrink:0; margin-top:1px;}
+  #installBanner b{display:block; font-size:13.5px; margin-bottom:2px;}
+  #installBanner p{margin:0; font-size:12.5px; opacity:.85; line-height:1.5;}
+  #installBanner .close{background:none; border:none; color:#fbfaf4; opacity:.7; font-size:18px; line-height:1; padding:2px 4px;}
+
+  /* bottom nav */
+  nav.tabbar{
+    position:fixed; left:0; right:0; bottom:0; z-index:15;
+    background:color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter:blur(14px);
+    border-top:1px solid var(--line);
+    padding:8px 10px calc(8px + var(--safe-b));
+    display:flex; justify-content:center;
+  }
+  nav.tabbar .inner{display:flex; gap:2px; width:100%; max-width:500px;}
+  nav.tabbar button{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:none;
+    padding:6px 2px; color:var(--ink-faint); font-size:10.5px; font-weight:600;
+  }
+  nav.tabbar button svg{width:21px; height:21px;}
+  nav.tabbar button.active{color:var(--accent-ink);}
+  @media (prefers-color-scheme: dark){ nav.tabbar button.active{color:var(--accent);} }
+  :root[data-theme="dark"] nav.tabbar button.active{color:var(--accent);}
+
+  @media (prefers-reduced-motion: no-preference){
+    .panel.active{animation:fade .18s ease both;}
+    @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+  }
+
+  /* modal */
+  #modalOverlay{
+    position:fixed; inset:0; z-index:50; background:rgba(15,20,17,.45); backdrop-filter:blur(2px);
+    display:flex; align-items:flex-end; justify-content:center; padding:12px;
+  }
+  #modalOverlay[hidden]{display:none;}
+  .modal-card{
+    width:100%; max-width:480px; background:var(--surface); border:1px solid var(--line); border-radius:18px;
+    padding:20px 20px calc(18px + var(--safe-b)); box-shadow:var(--shadow); display:flex; flex-direction:column; gap:14px;
+  }
+  .modal-card h3{font-size:17px; font-weight:600;}
+  .modal-card p{margin:0; font-size:13.5px; color:var(--ink-soft); line-height:1.55;}
+  .modal-actions{display:flex; gap:10px;}
+  .modal-actions .btn{flex:1;}
+  .btn-danger{background:var(--danger); color:#fff;}
+</style>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#eee7d6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l2 5 4-14 2 9 2-5h6"/></svg>
+      </div>
+      <div>
+        <div class="name">Head Clear</div>
+        <div class="date" id="hdrDate">—</div>
+      </div>
+    </div>
+    <button class="sos-btn" id="sosBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+      Red flags
+    </button>
+  </header>
+
+  <main>
+    <!-- TODAY -->
+    <section class="panel" id="panel-today">
+
+      <div class="status-card">
+        <div class="eyebrow" id="phaseEyebrow">Resting phase</div>
+        <h1 id="statusHeadline">Rebuilding, steadily.</h1>
+        <div class="status-row">
+          <div class="status-stat"><b class="num" id="statDay">—</b><span>Days tracked</span></div>
+          <div class="status-stat"><b class="num" id="statStreak">—</b><span>Symptom-easy streak</span></div>
+          <div class="status-stat"><b class="num" id="statStep">—</b><span>Restart step</span></div>
+        </div>
+      </div>
+
+      <div class="assess-banner" id="assessBanner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+        <div>
+          <b>Get assessed before a 4th return-to-play attempt</b>
+          <p>Three attempts have each brought symptoms back, past the four-week mark. Current guidance (Amsterdam 2023 consensus) says that combination means a clinician review now, not more self-managed rest. See Info for details.</p>
+          <button class="ack" id="ackBtn" type="button">Mark as seen</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Overall symptoms right now</div>
+        <div class="scale-row" id="symptomScale"></div>
+        <div class="scale-legend"><span>0 · none</span><span>10 · severe</span></div>
+        <div class="sparkline" id="sparkline"></div>
+      </div>
+
+      <div class="card">
+        <div class="block-head" style="margin-bottom:2px;">
+          <div class="section-title" style="margin:0;">Today's rhythm</div>
+          <button class="btn btn-ghost btn-sm" id="editChecklistBtn" type="button">Edit</button>
+        </div>
+        <p class="small" id="editHint" hidden style="margin:2px 2px 10px;">Tap an item to hide or show it — hidden items stay off your daily list until you turn them back on here.</p>
+        <div id="rhythmBlocks" class="stack"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px;">Running in the background</div>
+        <div id="standingList" class="check-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-bottom:10px;">A couple of lines for today</div>
+        <textarea class="journal" id="journalInput" placeholder="Symptoms, triggers, what helped — this is what a clinician will want to see."></textarea>
+      </div>
+    </section>
+
+    <!-- EXERCISE -->
+    <section class="panel" id="panel-exercise">
+      <div class="rule-box">
+        <b>The rule:</b> a mild flare that settles within about an hour is fine. Rise <b>no more than ~2/10</b>, and back near baseline by <b>+1 hour</b>. More than that — stop, rest, try gentler next time.
+      </div>
+
+      <div class="card stack" id="doseFormCard">
+        <div class="section-title">Log today's aerobic dose</div>
+        <div class="field">
+          <label>Activity</label>
+          <div class="seg" id="activitySeg">
+            <button type="button" data-v="Walk" class="on">Walk</button>
+            <button type="button" data-v="Bike">Bike</button>
+            <button type="button" data-v="Swim">Swim</button>
+            <button type="button" data-v="Other">Other</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Planned duration (min)</label>
+          <input type="number" id="doseDuration" placeholder="15" min="1" max="180" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label>Symptom score — before</label>
+          <div class="scale-row" id="doseBeforeScale"></div>
+        </div>
+        <button class="btn btn-primary" id="startDoseBtn" type="button">Start dose</button>
+      </div>
+
+      <div class="stack" id="doseList"></div>
+    </section>
+
+    <!-- RESTART -->
+    <section class="panel" id="panel-restart">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:6px;">Return-to-sport ladder</div>
+        <p class="small">Given your history, give each step a full <b style="color:var(--ink)">48 hours</b> — not the usual 24 — before moving on. If symptoms return at any step: stop, rest until symptom-free, then restart from the <i>previous</i> step.</p>
+      </div>
+
+      <div class="card" id="ladderStatusCard"></div>
+
+      <div class="card">
+        <div class="ladder" id="ladderList"></div>
+      </div>
+
+      <div class="stack" id="ladderActions"></div>
+
+      <div class="card" id="ladderHistoryCard">
+        <div class="section-title" style="margin-bottom:10px;">History</div>
+        <div id="ladderHistory" class="stack" style="gap:8px;"></div>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="panel" id="panel-history">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:4px;">Day by day</div>
+        <p class="small">Tap a day to see everything logged for it — checklist, symptoms, journal, doses.</p>
+      </div>
+      <div class="stack" id="historyList" style="gap:8px;"></div>
+    </section>
+
+    <!-- INFO -->
+    <section class="panel" id="panel-info">
+      <div class="card" style="background:var(--danger-soft); border-color:color-mix(in srgb, var(--danger) 35%, var(--line));">
+        <div class="section-title" style="color:var(--danger-ink); margin-bottom:8px;">Go straight to urgent care if</div>
+        <div class="redflag-list">
+          <div class="redflag-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>Worsening or severe headache</div>
+          <div class="redflag-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>Repeated vomiting</div>
+          <div class="redflag-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>Seizure</div>
+          <div class="redflag-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>Increasing confusion, or can't be woken</div>
+          <div class="redflag-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>Slurred speech, weakness or numbness</div>
+          <div class="redflag-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>Very unusual behaviour</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-bottom:8px;">Why an assessment, why now</div>
+        <p class="small" style="font-size:13px; color:var(--ink-soft); line-height:1.65;">
+          Three return-to-play attempts have each brought symptoms back, and you're past the four-week mark since the original injury. Under the Amsterdam 2023 International Consensus Statement on Concussion in Sport, that combination — symptoms persisting beyond four weeks plus repeated failed attempts — is specifically when you're meant to be referred to a clinician with concussion expertise, not just told to rest longer. A doctor, sports physician or concussion-trained physio can check for things self-managed rest can't fix alone: vestibular/ocular dysfunction, neck (cervicogenic) involvement, or an exercise-intolerance pattern — and can clear you, or set your restart pace, with real data instead of guesswork.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-bottom:4px;">Standing habits, every day</div>
+        <div class="kv"><div class="k">Hydration</div><div class="v">~2–2.5 L/day + sweat losses</div></div>
+        <div class="kv"><div class="k">Alcohol</div><div class="v">None until cleared</div></div>
+        <div class="kv"><div class="k">Caffeine</div><div class="v">Modest, none after midday</div></div>
+        <div class="kv"><div class="k">Mood</div><div class="v">Check in — say it out loud</div></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-bottom:8px;">Sources</div>
+        <p class="small">Amsterdam 2023 International Consensus Statement on Concussion in Sport (SIRC summary; AAP paediatric recommendations); CDC HEADS UP — Returning to Sports; ACSM — Exercise &amp; Rest in Concussion Recovery; Rush Orthopedics — Concussion Self-Care Guide; Concussion Alliance — Sleep and Sleep Problems; University of Michigan SMTD — Nutrition Recommendations for Concussions.</p>
+      </div>
+
+      <div class="card">
+        <p class="small">This app is general information, not a diagnosis or medical clearance. It doesn't replace an in-person assessment, especially given a history of repeated symptom return. All data stays on this device — nothing is uploaded anywhere.</p>
+      </div>
+
+      <button class="btn btn-ghost" id="resetDataBtn" type="button" style="color:var(--danger-ink);">Erase all data on this device</button>
+    </section>
+  </main>
+
+  <div id="installBanner" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M9 18h6"/><path d="M12 6v7m0 0-2.5-2.5M12 13l2.5-2.5"/></svg>
+    <div style="flex:1;">
+      <b>Add Head Clear to your Home Screen</b>
+      <p>Tap the Share icon in Safari's toolbar, then "Add to Home Screen" — it'll open full-screen, just like an app.</p>
+    </div>
+    <button class="close" id="installClose" type="button" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <div id="modalOverlay" hidden>
+    <div class="modal-card" id="modalCard"></div>
+  </div>
+
+  <nav class="tabbar">
+    <div class="inner">
+      <button class="tab-btn active" data-tab="today" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l2 5 4-14 2 9 2-5h6"/></svg>
+        Today
+      </button>
+      <button class="tab-btn" data-tab="exercise" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 18h6M6 15l4-7h4l3 6"/></svg>
+        Exercise
+      </button>
+      <button class="tab-btn" data-tab="restart" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+        Restart
+      </button>
+      <button class="tab-btn" data-tab="history" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+        History
+      </button>
+      <button class="tab-btn" data-tab="info" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-5M12 8h.01"/></svg>
+        Info
+      </button>
+    </div>
+  </nav>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY = "headclear_state_v1";
+  var LADDER_STEPS = [
+    {name:"Back to normal daily life", detail:"Work, study, screens at ordinary levels — no lingering symptoms at rest."},
+    {name:"Light aerobic activity", detail:"10–15 min walk, easy bike — no head movement or contact risk."},
+    {name:"Moderate activity", detail:"Running, moderate cycling, non-contact gym work, more head/body movement."},
+    {name:"Heavy, non-contact training", detail:"Sprinting, full gym loading, sport drills — still no contact."},
+    {name:"Full-contact practice", detail:"Only after medical clearance for contact specifically."},
+    {name:"Return to competition", detail:""}
+  ];
+  var RHYTHM = [
+    {key:"wake", time:"Wake", items:[
+      {id:"wakeTime", label:"Same wake time as usual", why:"An irregular wake time drifts recovery more than one short night."},
+      {id:"rehydrate", label:"Rehydrate before coffee", why:"Water or a low-sugar electrolyte drink."},
+      {id:"breakfast", label:"Real breakfast — protein + colour", why:"Eggs, oily fish, fruit/veg — not carb-only."}
+    ]},
+    {key:"midday", time:"Midday", items:[
+      {id:"aerobicDose", label:"One deliberate aerobic dose", why:"15–20 min, well below anything that spikes your head. Log it in Exercise."},
+      {id:"scoreIt", label:"Score before / after / +1hr", why:"Rise ≤2 that settles within the hour is fine."},
+      {id:"daylight", label:"Get outside / into daylight", why:"Helps circadian rhythm and mood."}
+    ]},
+    {key:"afternoon", time:"Afternoon", items:[
+      {id:"screenPacing", label:"Pace screens in 25–30 min blocks", why:"5–10 min off between, rather than pushing through."},
+      {id:"napOk", label:"Nap under an hour, before 3pm (if needed)", why:"Later or longer eats into night-time sleep."},
+      {id:"journal", label:"Log the day in a couple of lines", why:"Symptoms, triggers, what helped."}
+    ]},
+    {key:"evening", time:"Evening", items:[
+      {id:"screensOff", label:"Screens off / night mode, 1–2h before bed", why:"One of the more controllable light levers you have."},
+      {id:"lightDinner", label:"Earlier, lighter dinner — no alcohol", why:"Alcohol fragments the deep sleep your brain needs most."},
+      {id:"noLateExercise", label:"No vigorous exercise within 3h of bed", why:""}
+    ]},
+    {key:"bed", time:"Bed", items:[
+      {id:"sameBedtime", label:"Same bedtime — dark, cool, quiet, phone away", why:""},
+      {id:"sevenNine", label:"7–9 hours — up briefly if awake past 20 min", why:"Rather than lying there frustrated."}
+    ]}
+  ];
+  var STANDING = [
+    {id:"hydration", label:"Hydration", why:"~2–2.5 L water/day plus what you sweat out."},
+    {id:"noAlcohol", label:"No alcohol", why:"Until fully cleared — protects sleep and cognitive recovery."},
+    {id:"caffeineOk", label:"Caffeine kept modest", why:"Fine in small amounts; none after midday if sleep is off."},
+    {id:"moodCheckin", label:"Mood check-in", why:"Frustration and low mood are expected, not a sign you're doing it wrong."}
+  ];
+
+  function pad(n){ return n<10 ? "0"+n : ""+n; }
+  function dateKey(d){ d=d||new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function todayKey(){ return dateKey(new Date()); }
+  function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+  function defaultState(){
+    return {
+      createdAt: new Date().toISOString(),
+      assessmentAcknowledged: false,
+      days: {},
+      ladder: { started:false, currentStep:0, stepStartedAt:null, history:[] },
+      hidden: { rhythm:{}, standing:{} }
+    };
+  }
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(!raw) return defaultState();
+      var parsed = JSON.parse(raw);
+      if(!parsed || typeof parsed!=="object") return defaultState();
+      var d = defaultState();
+      d.createdAt = parsed.createdAt || d.createdAt;
+      d.assessmentAcknowledged = !!parsed.assessmentAcknowledged;
+      d.days = parsed.days && typeof parsed.days==="object" ? parsed.days : d.days;
+      Object.assign(d.ladder, parsed.ladder||{});
+      if(parsed.hidden){
+        Object.assign(d.hidden.rhythm, parsed.hidden.rhythm||{});
+        Object.assign(d.hidden.standing, parsed.hidden.standing||{});
+      }
+      return d;
+    }catch(e){ return defaultState(); }
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+    // keep the status card and history list honest with whatever just changed,
+    // without forcing every checkbox tap to re-render the entire app
+    if(typeof renderStatus==="function") renderStatus();
+    if(typeof renderHistory==="function") renderHistory();
+  }
+
+  function emptyDay(){
+    return {
+      symptomScore: null,
+      wake:{}, midday:{}, afternoon:{}, evening:{}, bed:{},
+      standing:{}, journal:"", doses:[]
+    };
+  }
+  function getDay(key){
+    if(!state.days[key]) state.days[key] = emptyDay();
+    return state.days[key];
+  }
+
+  var state = load();
+  var today = getDay(todayKey());
+  var activeTab = "today";
+  var selectedActivity = "Walk";
+  var selectedBeforeScore = null;
+  var editMode = false;
+
+  var ICON_CHECK = '<path d="M20 6 9 17l-5-5"/>';
+  var ICON_EYE = '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z"/><circle cx="12" cy="12" r="3"/>';
+  var ICON_EYE_OFF = '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a20.7 20.7 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a20.7 20.7 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/>';
+
+  function isHiddenRhythm(blockKey, itemId){ return !!state.hidden.rhythm[blockKey+":"+itemId]; }
+  function toggleHiddenRhythm(blockKey, itemId){
+    var k = blockKey+":"+itemId;
+    state.hidden.rhythm[k] = !state.hidden.rhythm[k];
+    save();
+  }
+  function isHiddenStanding(itemId){ return !!state.hidden.standing[itemId]; }
+  function toggleHiddenStanding(itemId){
+    state.hidden.standing[itemId] = !state.hidden.standing[itemId];
+    save();
+  }
+
+  // ---------- render: header ----------
+  function renderHeader(){
+    var d = new Date();
+    var opts = { weekday:'long', month:'long', day:'numeric' };
+    document.getElementById("hdrDate").textContent = d.toLocaleDateString(undefined, opts);
+  }
+
+  // ---------- render: status ----------
+  function dayCount(){ return Object.keys(state.days).length; }
+  function easyStreak(){
+    var streak = 0;
+    var d = new Date();
+    for(var i=0;i<365;i++){
+      var key = dateKey(d);
+      var day = state.days[key];
+      if(!day || day.symptomScore===null || day.symptomScore===undefined) break;
+      if(day.symptomScore<=2){ streak++; d.setDate(d.getDate()-1); } else break;
+    }
+    return streak;
+  }
+  function renderStatus(){
+    document.getElementById("statDay").textContent = String(Math.max(dayCount(),1));
+    document.getElementById("statStreak").textContent = String(easyStreak());
+    document.getElementById("statStep").textContent = state.ladder.started ? (state.ladder.currentStep+1)+"/6" : "—";
+    var eyebrow = document.getElementById("phaseEyebrow");
+    var headline = document.getElementById("statusHeadline");
+    if(!state.ladder.started){
+      eyebrow.textContent = "Resting phase";
+      headline.textContent = "Rebuilding, steadily.";
+    } else {
+      eyebrow.textContent = "Restart ladder · step "+(state.ladder.currentStep+1)+" of 6";
+      headline.textContent = LADDER_STEPS[state.ladder.currentStep].name;
+    }
+    document.getElementById("assessBanner").hidden = !!state.assessmentAcknowledged;
+  }
+
+  // ---------- render: symptom scale + sparkline ----------
+  function renderScale(container, value, onPick){
+    container.innerHTML = "";
+    for(var i=0;i<=10;i++){
+      (function(i){
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "scale-btn"+(value===i?" on":""); b.textContent = i;
+        b.addEventListener("click", function(){ onPick(i); });
+        container.appendChild(b);
+      })(i);
+    }
+  }
+  function renderSparkline(){
+    var el = document.getElementById("sparkline");
+    el.innerHTML = "";
+    var d = new Date();
+    var days = [];
+    for(var i=6;i>=0;i--){
+      var dd = new Date(d); dd.setDate(d.getDate()-i);
+      var key = dateKey(dd);
+      days.push({ label: dd.toLocaleDateString(undefined,{weekday:'narrow'}), score: state.days[key] ? state.days[key].symptomScore : null });
+    }
+    days.forEach(function(x){
+      var col = document.createElement("div"); col.className = "spark-bar";
+      var fill = document.createElement("div"); fill.className = "spark-fill";
+      var pct = x.score===null||x.score===undefined ? 6 : Math.max(10, x.score*10);
+      var color = x.score===null||x.score===undefined ? "var(--surface-2)" : (x.score<=2?"var(--good)": x.score<=5?"var(--warn)":"var(--danger)");
+      fill.style.height = pct+"%"; fill.style.background = color;
+      var lab = document.createElement("div"); lab.className="spark-day"; lab.textContent = x.label;
+      col.appendChild(fill); col.appendChild(lab); el.appendChild(col);
+    });
+  }
+
+  // ---------- render: rhythm checklist ----------
+  function renderRhythm(){
+    var root = document.getElementById("rhythmBlocks");
+    root.innerHTML = "";
+    document.getElementById("editChecklistBtn").textContent = editMode ? "Done" : "Edit";
+    document.getElementById("editHint").hidden = !editMode;
+    RHYTHM.forEach(function(block){
+      var visibleItems = block.items.filter(function(item){ return editMode || !isHiddenRhythm(block.key, item.id); });
+      if(!visibleItems.length) return;
+      var wrap = document.createElement("div");
+      var head = document.createElement("div"); head.className = "block-head";
+      head.innerHTML = '<span class="label"></span><span class="time"></span>';
+      head.querySelector(".label").textContent = block.time;
+      head.querySelector(".time").textContent = visibleItems.length+" items";
+      wrap.appendChild(head);
+      var list = document.createElement("div"); list.className = "check-list";
+      visibleItems.forEach(function(item){
+        var hidden = isHiddenRhythm(block.key, item.id);
+        var done = !editMode && !!today[block.key][item.id];
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "check-item"+(done?" done":"")+(editMode&&hidden?" item-hidden":"");
+        var icon = editMode ? (hidden ? ICON_EYE_OFF : ICON_EYE) : ICON_CHECK;
+        var iconColor = editMode ? (hidden ? "var(--ink-faint)" : "var(--accent-ink)") : "#fff";
+        btn.innerHTML = '<span class="box'+(editMode?' eyebox':'')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+(editMode?2.4:3)+'" stroke-linecap="round" stroke-linejoin="round" style="'+(editMode?'opacity:1;':'')+'color:'+iconColor+'">'+icon+'</svg></span>'+
+          '<span class="txt"><b></b>'+(item.why?'<span class="why"></span>':'')+'</span>';
+        btn.querySelector("b").textContent = item.label;
+        if(item.why) btn.querySelector(".why").textContent = item.why;
+        btn.addEventListener("click", function(){
+          if(editMode){ toggleHiddenRhythm(block.key, item.id); }
+          else { today[block.key][item.id] = !today[block.key][item.id]; save(); }
+          renderRhythm();
+        });
+        list.appendChild(btn);
+      });
+      wrap.appendChild(list);
+      root.appendChild(wrap);
+    });
+  }
+
+  function renderStanding(){
+    var root = document.getElementById("standingList");
+    root.innerHTML = "";
+    STANDING.forEach(function(item){
+      if(!editMode && isHiddenStanding(item.id)) return;
+      var hidden = isHiddenStanding(item.id);
+      var done = !editMode && !!today.standing[item.id];
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "check-item"+(done?" done":"")+(editMode&&hidden?" item-hidden":"");
+      var icon = editMode ? (hidden ? ICON_EYE_OFF : ICON_EYE) : ICON_CHECK;
+      var iconColor = editMode ? (hidden ? "var(--ink-faint)" : "var(--accent-ink)") : "#fff";
+      btn.innerHTML = '<span class="box'+(editMode?' eyebox':'')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+(editMode?2.4:3)+'" stroke-linecap="round" stroke-linejoin="round" style="opacity:'+(editMode?1:undefined)+';color:'+iconColor+'">'+icon+'</svg></span>'+
+        '<span class="txt"><b></b><span class="why"></span></span>';
+      btn.querySelector("b").textContent = item.label;
+      btn.querySelector(".why").textContent = item.why;
+      btn.addEventListener("click", function(){
+        if(editMode){ toggleHiddenStanding(item.id); }
+        else { today.standing[item.id] = !today.standing[item.id]; save(); }
+        renderStanding();
+      });
+      root.appendChild(btn);
+    });
+  }
+
+  document.getElementById("editChecklistBtn").addEventListener("click", function(){
+    editMode = !editMode;
+    renderRhythm(); renderStanding();
+  });
+
+  // ---------- exercise tab ----------
+  function doseVerdict(dose){
+    if(dose.after===null || dose.after===undefined) return {label:"Awaiting after-score", cls:"wait"};
+    var riseAfter = dose.after - dose.before;
+    if(dose.after1hr===null || dose.after1hr===undefined){
+      return riseAfter>2 ? {label:"Rise >2 — ease off next time", cls:"warn"} : {label:"Within guidance so far — log +1hr", cls:"wait"};
+    }
+    var rise1hr = dose.after1hr - dose.before;
+    if(riseAfter<=2 && rise1hr<=1) return {label:"Within guidance", cls:"good"};
+    return {label:"Ease off next time", cls:"warn"};
+  }
+  function renderDoseForm(){
+    var seg = document.getElementById("activitySeg");
+    Array.prototype.forEach.call(seg.children, function(b){ b.classList.toggle("on", b.dataset.v===selectedActivity); });
+    renderScale(document.getElementById("doseBeforeScale"), selectedBeforeScore, function(v){ selectedBeforeScore=v; renderDoseForm(); });
+  }
+  function renderDoseList(){
+    var root = document.getElementById("doseList");
+    root.innerHTML = "";
+    var doses = today.doses.slice().reverse();
+    if(!doses.length){
+      var empty = document.createElement("p"); empty.className="small"; empty.style.textAlign="center"; empty.style.padding="6px 0";
+      empty.textContent = "No doses logged yet today.";
+      root.appendChild(empty);
+      return;
+    }
+    doses.forEach(function(dose){
+      var card = document.createElement("div"); card.className = "dose-item";
+      var v = doseVerdict(dose);
+      var t = new Date(dose.createdAt);
+      card.innerHTML =
+        '<div class="dose-top"><b></b><span></span></div>'+
+        '<div class="dose-scores"><span>Before <b></b></span><span>After <b></b></span><span>+1hr <b></b></span></div>'+
+        '<div class="badge '+v.cls+'"></div>'+
+        '<div class="mini-actions"></div>';
+      card.querySelector(".dose-top b").textContent = dose.activity + (dose.duration ? " · "+dose.duration+" min" : "");
+      card.querySelector(".dose-top span").textContent = t.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+      var scores = card.querySelectorAll(".dose-scores b");
+      scores[0].textContent = dose.before;
+      scores[1].textContent = dose.after===null||dose.after===undefined ? "—" : dose.after;
+      scores[2].textContent = dose.after1hr===null||dose.after1hr===undefined ? "—" : dose.after1hr;
+      card.querySelector(".badge").textContent = v.label;
+      var actions = card.querySelector(".mini-actions");
+      if(dose.after===null || dose.after===undefined){
+        var b1 = document.createElement("button"); b1.className="btn btn-ghost btn-sm"; b1.type="button"; b1.textContent="Log after-score";
+        b1.addEventListener("click", function(){ promptScore("Score right after", function(v){ dose.after=v; save(); renderDoseList(); }); });
+        actions.appendChild(b1);
+      } else if(dose.after1hr===null || dose.after1hr===undefined){
+        var b2 = document.createElement("button"); b2.className="btn btn-ghost btn-sm"; b2.type="button"; b2.textContent="Log +1hr score";
+        b2.addEventListener("click", function(){ promptScore("Score one hour later", function(v){ dose.after1hr=v; save(); renderDoseList(); }); });
+        actions.appendChild(b2);
+      }
+      root.appendChild(card);
+    });
+  }
+  // ---------- modal helpers (avoid relying on native dialogs) ----------
+  var modalOverlay = document.getElementById("modalOverlay");
+  var modalCard = document.getElementById("modalCard");
+  function closeModal(){ modalOverlay.hidden = true; modalCard.innerHTML = ""; }
+  modalOverlay.addEventListener("click", function(e){ if(e.target===modalOverlay) closeModal(); });
+
+  function showConfirmModal(opts){
+    modalCard.innerHTML =
+      '<h3></h3><p></p>'+
+      '<div class="modal-actions"><button class="btn btn-ghost" id="mCancel" type="button">Cancel</button>'+
+      '<button class="btn '+(opts.danger?'btn-danger':'btn-primary')+'" id="mOk" type="button"></button></div>';
+    modalCard.querySelector("h3").textContent = opts.title;
+    modalCard.querySelector("p").textContent = opts.message;
+    modalCard.querySelector("#mOk").textContent = opts.confirmLabel || "Confirm";
+    modalCard.querySelector("#mCancel").addEventListener("click", closeModal);
+    modalCard.querySelector("#mOk").addEventListener("click", function(){ closeModal(); opts.onConfirm(); });
+    modalOverlay.hidden = false;
+  }
+
+  function promptScore(title, cb){
+    var picked = null;
+    modalCard.innerHTML =
+      '<h3></h3><p>Symptom score right now, 0 (none) to 10 (severe).</p>'+
+      '<div class="scale-row" id="mScale"></div>'+
+      '<div class="modal-actions"><button class="btn btn-ghost" id="mCancel" type="button">Cancel</button>'+
+      '<button class="btn btn-primary" id="mOk" type="button" disabled>Save score</button></div>';
+    modalCard.querySelector("h3").textContent = title;
+    var okBtn = modalCard.querySelector("#mOk");
+    var scaleEl = modalCard.querySelector("#mScale");
+    function paintScale(){
+      Array.prototype.forEach.call(scaleEl.querySelectorAll(".scale-btn"), function(b,i){ b.classList.toggle("on", i===picked); });
+    }
+    renderScale(scaleEl, null, function(v){ picked = v; okBtn.disabled = false; paintScale(); });
+    modalCard.querySelector("#mCancel").addEventListener("click", closeModal);
+    okBtn.addEventListener("click", function(){ if(picked===null) return; closeModal(); cb(picked); });
+    modalOverlay.hidden = false;
+  }
+
+  document.getElementById("activitySeg").addEventListener("click", function(e){
+    var b = e.target.closest("button"); if(!b) return;
+    selectedActivity = b.dataset.v; renderDoseForm();
+  });
+  document.getElementById("startDoseBtn").addEventListener("click", function(){
+    if(selectedBeforeScore===null){
+      var scaleCard = document.getElementById("doseBeforeScale");
+      scaleCard.style.outline = "2px solid var(--danger)"; scaleCard.style.outlineOffset = "3px";
+      setTimeout(function(){ scaleCard.style.outline = ""; }, 900);
+      return;
+    }
+    var dur = parseInt(document.getElementById("doseDuration").value,10);
+    today.doses.push({ id:uid(), activity:selectedActivity, duration: isNaN(dur)?null:dur, before:selectedBeforeScore, after:null, after1hr:null, createdAt:new Date().toISOString() });
+    selectedBeforeScore = null;
+    document.getElementById("doseDuration").value = "";
+    save(); renderDoseForm(); renderDoseList(); renderStatus();
+  });
+
+  // ---------- restart ladder ----------
+  function hoursOnStep(){
+    if(!state.ladder.stepStartedAt) return 0;
+    return (Date.now() - new Date(state.ladder.stepStartedAt).getTime())/3600000;
+  }
+  function renderLadderStatus(){
+    var card = document.getElementById("ladderStatusCard");
+    if(!state.ladder.started){
+      card.innerHTML = '<div class="section-title" style="margin-bottom:8px;">Not started yet</div>'+
+        '<p class="small" style="margin-bottom:12px;">Start once you\'re cleared — or, if a clinician isn\'t reachable soon, once you\'ve had several consecutive symptom-free days at rest.</p>'+
+        '<button class="btn btn-primary" id="startLadderBtn" type="button">Start return-to-sport ladder</button>';
+      document.getElementById("startLadderBtn").addEventListener("click", function(){
+        state.ladder.started = true; state.ladder.currentStep = 0; state.ladder.stepStartedAt = new Date().toISOString();
+        state.ladder.history.push({date:new Date().toISOString(), event:"started", step:0});
+        save(); renderAll();
+      });
+      return;
+    }
+    var hrs = hoursOnStep();
+    var eligible = hrs >= 48;
+    card.innerHTML =
+      '<div class="kv" style="border-top:none;"><div class="k">Current step</div><div class="v">'+(state.ladder.currentStep+1)+' of 6</div></div>'+
+      '<div class="kv"><div class="k">Time on this step</div><div class="v '+(eligible?'good':'warn')+'">'+fmtHours(hrs)+'</div></div>'+
+      '<div class="kv"><div class="k">48h checkpoint</div><div class="v '+(eligible?'good':'warn')+'">'+(eligible?'Met':'Not yet — '+fmtHours(48-hrs)+' left')+'</div></div>';
+  }
+  function fmtHours(h){
+    if(h<0) h=0;
+    var totalMin = Math.round(h*60);
+    var hh = Math.floor(totalMin/60), mm = totalMin%60;
+    return hh+"h "+mm+"m";
+  }
+  function renderLadderList(){
+    var root = document.getElementById("ladderList"); root.innerHTML = "";
+    LADDER_STEPS.forEach(function(step, i){
+      var rung = document.createElement("div");
+      var state_ = "pending";
+      if(state.ladder.started){
+        if(i < state.ladder.currentStep) state_ = "done";
+        else if(i === state.ladder.currentStep) state_ = "current";
+      }
+      rung.className = "rung "+state_;
+      rung.innerHTML = '<div class="dotcol"><div class="dot"></div><div class="connector"></div></div>'+
+        '<div class="rtxt"><div class="rname"></div>'+(step.detail?'<div class="rdetail"></div>':'')+'</div>';
+      rung.querySelector(".dot").textContent = state_==="done" ? "✓" : String(i+1);
+      rung.querySelector(".rname").textContent = step.name;
+      if(step.detail) rung.querySelector(".rdetail").textContent = step.detail;
+      root.appendChild(rung);
+    });
+  }
+  function renderLadderActions(){
+    var root = document.getElementById("ladderActions"); root.innerHTML = "";
+    if(!state.ladder.started) return;
+    var isLast = state.ladder.currentStep >= LADDER_STEPS.length-1;
+    if(!isLast){
+      var adv = document.createElement("button"); adv.className="btn btn-primary"; adv.type="button";
+      adv.textContent = "Advance to step "+(state.ladder.currentStep+2);
+      adv.addEventListener("click", function(){
+        var hrs = hoursOnStep();
+        function doAdvance(){
+          state.ladder.currentStep++; state.ladder.stepStartedAt = new Date().toISOString();
+          state.ladder.history.push({date:new Date().toISOString(), event:"advanced", step:state.ladder.currentStep});
+          save(); renderAll();
+        }
+        if(hrs<48){
+          showConfirmModal({
+            title:"Advance early?",
+            message:"Only "+fmtHours(hrs)+" on this step — under the 48h checkpoint given your history of repeated symptom return. Advance anyway?",
+            confirmLabel:"Advance anyway", danger:true, onConfirm:doAdvance
+          });
+        } else { doAdvance(); }
+      });
+      root.appendChild(adv);
+    } else {
+      var done = document.createElement("div"); done.className="badge good"; done.style.margin="0 auto"; done.textContent="Ladder complete — return to competition";
+      root.appendChild(done);
+    }
+    var back = document.createElement("button"); back.className="btn btn-ghost"; back.type="button"; back.style.color="var(--danger-ink)";
+    back.textContent = "Symptoms returned — step back";
+    back.addEventListener("click", function(){
+      showConfirmModal({
+        title:"Log a symptom return?",
+        message:"This drops you back to the previous step and restarts the 48h checkpoint from there.",
+        confirmLabel:"Step back", danger:true,
+        onConfirm:function(){
+          var prev = Math.max(0, state.ladder.currentStep-1);
+          state.ladder.history.push({date:new Date().toISOString(), event:"reset", step:state.ladder.currentStep});
+          state.ladder.currentStep = prev; state.ladder.stepStartedAt = new Date().toISOString();
+          save(); renderAll();
+        }
+      });
+    });
+    root.appendChild(back);
+  }
+  function renderLadderHistory(){
+    var root = document.getElementById("ladderHistory"); root.innerHTML="";
+    var h = state.ladder.history.slice().reverse();
+    if(!h.length){ root.innerHTML = '<p class="small">No entries yet.</p>'; return; }
+    h.forEach(function(entry){
+      var row = document.createElement("div"); row.className="kv"; row.style.borderTop="1px solid var(--line)";
+      var label = entry.event==="started" ? "Started ladder" : entry.event==="advanced" ? "Advanced to step "+(entry.step+1) : "Symptoms returned at step "+(entry.step+1);
+      row.innerHTML = '<div class="k"></div><div class="v" style="font-family:inherit; font-weight:500;"></div>';
+      row.querySelector(".k").textContent = new Date(entry.date).toLocaleDateString(undefined,{month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+      row.querySelector(".v").textContent = label;
+      if(entry.event==="reset") row.querySelector(".v").style.color = "var(--danger-ink)";
+      root.appendChild(row);
+    });
+  }
+
+  // ---------- history ----------
+  function allDayKeysSorted(){ return Object.keys(state.days).sort().reverse(); }
+  function countTrue(obj){ var n=0; for(var k in obj){ if(obj[k]===true) n++; } return n; }
+  function dayCompletedCount(day){
+    return countTrue(day.wake)+countTrue(day.midday)+countTrue(day.afternoon)+countTrue(day.evening)+countTrue(day.bed)+countTrue(day.standing);
+  }
+  function fmtDateLabel(key){
+    var d = new Date(key+"T00:00:00");
+    return d.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'});
+  }
+  function renderHistory(){
+    var root = document.getElementById("historyList");
+    root.innerHTML = "";
+    var keys = allDayKeysSorted();
+    if(!keys.length){
+      var empty = document.createElement("p"); empty.className="small"; empty.style.textAlign="center"; empty.style.padding="20px 0";
+      empty.textContent = "No days logged yet.";
+      root.appendChild(empty);
+      return;
+    }
+    keys.forEach(function(key){
+      var day = state.days[key];
+      var score = day.symptomScore;
+      var scoreColor = (score===null||score===undefined) ? "var(--ink-faint)" : (score<=2?"var(--good)":score<=5?"var(--warn)":"var(--danger)");
+      var row = document.createElement("button");
+      row.type = "button"; row.className = "history-row";
+      row.innerHTML =
+        '<div class="hist-date"></div>'+
+        '<div class="hist-mid"><span class="hist-dot"></span><span class="hist-score"></span></div>'+
+        '<div class="hist-meta"></div>';
+      row.querySelector(".hist-date").textContent = key===todayKey() ? "Today" : fmtDateLabel(key);
+      row.querySelector(".hist-dot").style.background = scoreColor;
+      row.querySelector(".hist-score").textContent = (score===null||score===undefined) ? "—" : score+"/10";
+      var metaParts = [dayCompletedCount(day)+" done"];
+      if(day.doses && day.doses.length) metaParts.push(day.doses.length+" dose"+(day.doses.length>1?"s":""));
+      row.querySelector(".hist-meta").textContent = metaParts.join(" · ");
+      row.addEventListener("click", function(){ showDayDetail(key); });
+      root.appendChild(row);
+    });
+  }
+
+  function showDayDetail(key){
+    var day = state.days[key];
+    modalCard.innerHTML = "";
+    var h3 = document.createElement("h3");
+    h3.textContent = key===todayKey() ? "Today" : fmtDateLabel(key);
+    modalCard.appendChild(h3);
+
+    var body = document.createElement("div");
+    body.className = "stack"; body.style.gap = "14px"; body.style.maxHeight = "56vh"; body.style.overflowY = "auto"; body.style.paddingRight = "2px";
+
+    var scoreRow = document.createElement("div"); scoreRow.className = "kv"; scoreRow.style.borderTop = "none";
+    scoreRow.innerHTML = '<div class="k">Overall symptoms</div><div class="v"></div>';
+    scoreRow.querySelector(".v").textContent = (day.symptomScore===null||day.symptomScore===undefined) ? "Not logged" : day.symptomScore+"/10";
+    body.appendChild(scoreRow);
+
+    RHYTHM.forEach(function(block){
+      var trueItems = block.items.filter(function(it){ return day[block.key][it.id]===true; });
+      if(!trueItems.length) return;
+      var g = document.createElement("div"); g.className = "detail-group";
+      var lbl = document.createElement("div"); lbl.className = "section-title"; lbl.style.margin = "0 0 2px"; lbl.textContent = block.time;
+      g.appendChild(lbl);
+      trueItems.forEach(function(it){
+        var line = document.createElement("div"); line.className = "detail-line"; line.textContent = "✓ "+it.label;
+        g.appendChild(line);
+      });
+      body.appendChild(g);
+    });
+
+    var trueStanding = STANDING.filter(function(it){ return day.standing[it.id]===true; });
+    if(trueStanding.length){
+      var gs = document.createElement("div"); gs.className = "detail-group";
+      var lbls = document.createElement("div"); lbls.className = "section-title"; lbls.style.margin = "0 0 2px"; lbls.textContent = "Standing habits";
+      gs.appendChild(lbls);
+      trueStanding.forEach(function(it){
+        var line = document.createElement("div"); line.className = "detail-line"; line.textContent = "✓ "+it.label;
+        gs.appendChild(line);
+      });
+      body.appendChild(gs);
+    }
+
+    if(day.doses && day.doses.length){
+      var gd = document.createElement("div"); gd.className = "detail-group";
+      var lbld = document.createElement("div"); lbld.className = "section-title"; lbld.style.margin = "0 0 2px"; lbld.textContent = "Exercise doses";
+      gd.appendChild(lbld);
+      day.doses.forEach(function(dose){
+        var v = doseVerdict(dose);
+        var after = (dose.after===null||dose.after===undefined) ? "—" : dose.after;
+        var after1hr = (dose.after1hr===null||dose.after1hr===undefined) ? "—" : dose.after1hr;
+        var line = document.createElement("div"); line.className = "detail-line";
+        line.textContent = dose.activity+" — before "+dose.before+", after "+after+", +1hr "+after1hr+" ("+v.label+")";
+        gd.appendChild(line);
+      });
+      body.appendChild(gd);
+    }
+
+    if(day.journal){
+      var gj = document.createElement("div"); gj.className = "detail-group";
+      var lblj = document.createElement("div"); lblj.className = "section-title"; lblj.style.margin = "0 0 2px"; lblj.textContent = "Notes";
+      gj.appendChild(lblj);
+      var jt = document.createElement("div"); jt.className = "detail-line"; jt.style.whiteSpace = "pre-wrap"; jt.style.color = "var(--ink)"; jt.textContent = day.journal;
+      gj.appendChild(jt);
+      body.appendChild(gj);
+    }
+
+    if(body.children.length===1){
+      var none = document.createElement("p"); none.className = "small"; none.textContent = "Nothing else logged this day.";
+      body.appendChild(none);
+    }
+
+    modalCard.appendChild(body);
+    var actions = document.createElement("div"); actions.className = "modal-actions";
+    var closeBtn = document.createElement("button"); closeBtn.className = "btn btn-primary"; closeBtn.type = "button"; closeBtn.textContent = "Close";
+    closeBtn.addEventListener("click", closeModal);
+    actions.appendChild(closeBtn);
+    modalCard.appendChild(actions);
+    modalOverlay.hidden = false;
+  }
+
+  // ---------- info tab ----------
+  document.getElementById("ackBtn").addEventListener("click", function(){
+    state.assessmentAcknowledged = true; save(); renderStatus();
+  });
+  document.getElementById("resetDataBtn").addEventListener("click", function(){
+    showConfirmModal({
+      title:"Erase all data?",
+      message:"This removes every checklist, dose log, and ladder entry stored on this device. It can't be undone.",
+      confirmLabel:"Erase everything", danger:true,
+      onConfirm:function(){
+        try{ localStorage.removeItem(KEY); }catch(e){}
+        state = defaultState(); today = getDay(todayKey());
+        save(); renderAll();
+      }
+    });
+  });
+  document.getElementById("sosBtn").addEventListener("click", function(){ switchTab("info"); window.scrollTo({top:0,behavior:"smooth"}); });
+
+  // ---------- journal ----------
+  var journalEl = document.getElementById("journalInput");
+  journalEl.value = today.journal || "";
+  var journalTimer;
+  journalEl.addEventListener("input", function(){
+    clearTimeout(journalTimer);
+    journalTimer = setTimeout(function(){ today.journal = journalEl.value; save(); }, 400);
+  });
+
+  // ---------- tabs ----------
+  function switchTab(tab){
+    activeTab = tab;
+    document.querySelectorAll(".panel").forEach(function(p){ p.classList.toggle("active", p.id==="panel-"+tab); });
+    document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.toggle("active", b.dataset.tab===tab); });
+    document.querySelector("main").scrollTop = 0;
+    window.scrollTo(0,0);
+  }
+  document.querySelectorAll(".tab-btn").forEach(function(b){
+    b.addEventListener("click", function(){ switchTab(b.dataset.tab); });
+  });
+
+  function renderTodayScale(){
+    renderScale(document.getElementById("symptomScale"), today.symptomScore, function(v){
+      today.symptomScore = v; save(); renderStatus(); renderTodayScale(); renderSparkline();
+    });
+  }
+  function renderAll(){
+    renderHeader();
+    renderStatus();
+    renderTodayScale();
+    renderSparkline();
+    renderRhythm();
+    renderStanding();
+    renderDoseForm();
+    renderDoseList();
+    renderLadderStatus();
+    renderLadderList();
+    renderLadderActions();
+    renderLadderHistory();
+    renderHistory();
+    switchTab(activeTab);
+  }
+  renderAll();
+
+  // ---------- install banner (iOS Safari, not yet standalone) ----------
+  (function(){
+    var isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+    var dismissed = false;
+    try{ dismissed = localStorage.getItem("headclear_install_dismissed")==="1"; }catch(e){}
+    if(isIOS && !isStandalone && !dismissed){
+      document.getElementById("installBanner").hidden = false;
+    }
+    document.getElementById("installClose").addEventListener("click", function(){
+      document.getElementById("installBanner").hidden = true;
+      try{ localStorage.setItem("headclear_install_dismissed","1"); }catch(e){}
+    });
+  })();
+
+  // ---------- service worker ----------
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    });
+  }
+
+  // roll day over if the app stays open across midnight
+  setInterval(function(){
+    var k = todayKey();
+    if(!state.days[k]){ today = getDay(k); save(); renderAll(); }
+  }, 60000);
+})();
+</script>

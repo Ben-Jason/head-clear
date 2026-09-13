@@ -1,0 +1,16 @@
+{
+  "name": "Head Clear — Concussion Recovery",
+  "short_name": "Head Clear",
+  "description": "Daily rhythm, exercise-dose scoring, and return-to-sport tracking for concussion recovery.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2efe6",
+  "theme_color": "#1c3d35",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

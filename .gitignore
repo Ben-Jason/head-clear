@@ -1,0 +1,4 @@
+node_modules/
+.wrangler/
+worker/.setupkey.local
+.DS_Store

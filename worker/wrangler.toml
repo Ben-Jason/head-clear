@@ -1,0 +1,15 @@
+name = "head-clear-reminders"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# 06:00 and 18:00 UTC = 08:00 and 20:00 Africa/Johannesburg (UTC+2, no DST)
+[triggers]
+crons = ["0 6 * * *", "0 18 * * *"]
+
+[vars]
+VAPID_PUBLIC_KEY = "BM_9NQhAYZrDlwb5L4WBEepLa-_ZsMzsEXcl1yW7QRj9QctOopQ5v7JeUtCVIPLvOSqS9LVKyLOZyotdm69EQek"
+VAPID_SUBJECT = "mailto:benjasondixon99@gmail.com"
+
+[[kv_namespaces]]
+binding = "SUBS"
+id = "dbd3140e2dec43e9b1e79ff02ce0b9e0"
