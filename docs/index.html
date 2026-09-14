@@ -227,6 +227,17 @@
   .scale-btn.on{background:var(--accent); border-color:var(--accent); color:#fff;}
   .scale-legend{display:flex; justify-content:space-between; font-size:10.5px; color:var(--ink-faint); margin-top:6px; padding:0 2px;}
 
+  /* HIA-style symptom evaluation */
+  .hia-summary{display:flex; margin-bottom:4px;}
+  .hia-summary .stat-tile{flex:1; text-align:left; padding:10px 4px; border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
+  .hia-summary .stat-tile:first-child{border-right:1px solid var(--line);}
+  .hia-list{display:flex; flex-direction:column; gap:14px; padding-top:12px;}
+  .hia-row{display:flex; flex-direction:column; gap:7px;}
+  .hia-row-head{display:flex; justify-content:space-between; align-items:baseline; gap:8px;}
+  .hia-name{font-size:13.5px; font-weight:600; color:var(--ink);}
+  .hia-val{font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:700; color:var(--ink-faint); flex-shrink:0;}
+  .hia-row.rated .hia-val{color:var(--accent-ink);}
+
   textarea.journal{
     width:100%; border:1px solid var(--line); border-radius:12px; background:var(--surface-2);
     padding:11px 12px; font:inherit; font-size:14px; color:var(--ink); resize:vertical; min-height:64px;
@@ -403,9 +414,13 @@
       </div>
 
       <div class="card">
-        <div class="section-title">Overall symptoms right now</div>
-        <div class="scale-row" id="symptomScale"></div>
-        <div class="scale-legend"><span>0 · none</span><span>10 · severe</span></div>
+        <div class="block-head" style="margin-bottom:2px;">
+          <div class="section-title" style="margin:0;">Symptom evaluation</div>
+          <button class="btn btn-ghost btn-sm" id="hiaToggleBtn" type="button">Start</button>
+        </div>
+        <p class="small" style="margin:2px 2px 12px;">Rate each symptom 0 (none) to 6 (severe) — the same 22-item scale and scoring used in a World Rugby Head Injury Assessment.</p>
+        <div class="hia-summary" id="hiaSummary"></div>
+        <div id="hiaList" class="hia-list" hidden></div>
         <div class="sparkline" id="sparkline"></div>
       </div>
 
@@ -545,6 +560,12 @@
         <p class="small">This app is general information, not a diagnosis or medical clearance. It doesn't replace an in-person assessment, especially given a history of repeated symptom return. All data stays on this device — nothing is uploaded anywhere.</p>
       </div>
 
+      <div class="card">
+        <div class="section-title" style="margin-bottom:8px;">Feature ideas</div>
+        <p class="small" style="margin-bottom:10px;">Jot down anything you want added or changed — bring this note back to Claude next time and hand it over.</p>
+        <textarea class="journal" id="featureNotesInput" placeholder="e.g. add a medication log, a weekly summary…" style="min-height:96px;"></textarea>
+      </div>
+
       <button class="btn btn-ghost" id="resetDataBtn" type="button" style="color:var(--danger-ink);">Erase all data on this device</button>
     </section>
   </main>
@@ -632,6 +653,33 @@
     {id:"caffeineOk", label:"Caffeine kept modest", why:"Fine in small amounts; none after midday if sleep is off."},
     {id:"moodCheckin", label:"Mood check-in", why:"Frustration and low mood are expected, not a sign you're doing it wrong."}
   ];
+  // The 22-symptom list and 0–6 scoring used on the SCAT5 symptom evaluation
+  // (the tool a World Rugby HIA is built on). Max severity score = 22×6 = 132.
+  var HIA_SYMPTOMS = [
+    {id:"headache", label:"Headache"},
+    {id:"pressureInHead", label:"Pressure in head"},
+    {id:"neckPain", label:"Neck pain"},
+    {id:"nauseaVomiting", label:"Nausea or vomiting"},
+    {id:"dizziness", label:"Dizziness"},
+    {id:"blurredVision", label:"Blurred vision"},
+    {id:"balanceProblems", label:"Balance problems"},
+    {id:"sensitivityLight", label:"Sensitivity to light"},
+    {id:"sensitivityNoise", label:"Sensitivity to noise"},
+    {id:"feelingSlowedDown", label:"Feeling slowed down"},
+    {id:"feelingInFog", label:"Feeling like “in a fog”"},
+    {id:"dontFeelRight", label:"Don’t feel right"},
+    {id:"difficultyConcentrating", label:"Difficulty concentrating"},
+    {id:"difficultyRemembering", label:"Difficulty remembering"},
+    {id:"fatigue", label:"Fatigue or low energy"},
+    {id:"confusion", label:"Confusion"},
+    {id:"drowsiness", label:"Drowsiness"},
+    {id:"troubleFallingAsleep", label:"Trouble falling asleep"},
+    {id:"moreEmotional", label:"More emotional"},
+    {id:"irritability", label:"Irritability"},
+    {id:"sadness", label:"Sadness"},
+    {id:"nervousAnxious", label:"Nervous or anxious"}
+  ];
+  var HIA_MAX_SEVERITY = HIA_SYMPTOMS.length * 6;
 
   function pad(n){ return n<10 ? "0"+n : ""+n; }
   function dateKey(d){ d=d||new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
@@ -644,7 +692,8 @@
       assessmentAcknowledged: false,
       days: {},
       ladder: { started:false, currentStep:0, stepStartedAt:null, history:[] },
-      hidden: { rhythm:{}, standing:{} }
+      hidden: { rhythm:{}, standing:{} },
+      featureNotes: ""
     };
   }
   function load(){
@@ -662,6 +711,7 @@
         Object.assign(d.hidden.rhythm, parsed.hidden.rhythm||{});
         Object.assign(d.hidden.standing, parsed.hidden.standing||{});
       }
+      d.featureNotes = typeof parsed.featureNotes==="string" ? parsed.featureNotes : "";
       return d;
     }catch(e){ return defaultState(); }
   }
@@ -679,11 +729,12 @@
     return {
       symptomScore: null,
       wake:{}, midday:{}, afternoon:{}, evening:{}, bed:{},
-      standing:{}, journal:"", doses:[]
+      standing:{}, journal:"", doses:[], hia:{}
     };
   }
   function getDay(key){
     if(!state.days[key]) state.days[key] = emptyDay();
+    if(!state.days[key].hia) state.days[key].hia = {}; // days created before the HIA feature
     return state.days[key];
   }
 
@@ -747,9 +798,10 @@
   }
 
   // ---------- render: symptom scale + sparkline ----------
-  function renderScale(container, value, onPick){
+  function renderScale(container, value, onPick, max){
+    max = (max===undefined) ? 10 : max;
     container.innerHTML = "";
-    for(var i=0;i<=10;i++){
+    for(var i=0;i<=max;i++){
       (function(i){
         var b = document.createElement("button");
         b.type = "button"; b.className = "scale-btn"+(value===i?" on":""); b.textContent = i;
@@ -1242,6 +1294,26 @@
     scoreRow.querySelector(".v").textContent = (day.symptomScore===null||day.symptomScore===undefined) ? "Not logged" : day.symptomScore+"/10";
     body.appendChild(scoreRow);
 
+    if(hiaTouched(day)){
+      var sevRow = document.createElement("div"); sevRow.className = "kv";
+      sevRow.innerHTML = '<div class="k">HIA severity score</div><div class="v"></div>';
+      sevRow.querySelector(".v").textContent = hiaSeverity(day)+" / "+HIA_MAX_SEVERITY+" ("+hiaCount(day)+" symptoms)";
+      body.appendChild(sevRow);
+
+      var ratedSymptoms = HIA_SYMPTOMS.filter(function(s){ return typeof day.hia[s.id]==="number"; });
+      if(ratedSymptoms.length){
+        var gh = document.createElement("div"); gh.className = "detail-group";
+        var lblh = document.createElement("div"); lblh.className = "section-title"; lblh.style.margin = "0 0 2px"; lblh.textContent = "Symptom evaluation";
+        gh.appendChild(lblh);
+        ratedSymptoms.forEach(function(s){
+          var line = document.createElement("div"); line.className = "detail-line";
+          line.textContent = s.label+" — "+day.hia[s.id]+"/6";
+          gh.appendChild(line);
+        });
+        body.appendChild(gh);
+      }
+    }
+
     RHYTHM.forEach(function(block){
       var trueItems = block.items.filter(function(it){ return day[block.key][it.id]===true; });
       if(!trueItems.length) return;
@@ -1317,6 +1389,9 @@
       onConfirm:function(){
         try{ localStorage.removeItem(KEY); }catch(e){}
         state = defaultState(); today = getDay(todayKey());
+        hiaExpanded = false;
+        journalEl.value = "";
+        featureNotesEl.value = "";
         save(); renderAll();
       }
     });
@@ -1332,6 +1407,15 @@
     journalTimer = setTimeout(function(){ today.journal = journalEl.value; save(); }, 400);
   });
 
+  // ---------- feature-idea notes (Info tab) ----------
+  var featureNotesEl = document.getElementById("featureNotesInput");
+  featureNotesEl.value = state.featureNotes || "";
+  var featureNotesTimer;
+  featureNotesEl.addEventListener("input", function(){
+    clearTimeout(featureNotesTimer);
+    featureNotesTimer = setTimeout(function(){ state.featureNotes = featureNotesEl.value; save(); }, 400);
+  });
+
   // ---------- tabs ----------
   function switchTab(tab){
     activeTab = tab;
@@ -1344,15 +1428,87 @@
     b.addEventListener("click", function(){ switchTab(b.dataset.tab); });
   });
 
-  function renderTodayScale(){
-    renderScale(document.getElementById("symptomScale"), today.symptomScore, function(v){
-      today.symptomScore = v; save(); renderStatus(); renderTodayScale(); renderSparkline();
+  // ---------- HIA-style symptom evaluation (World Rugby HIA / SCAT5 list) ----------
+  var hiaExpanded = false;
+  function hiaSeverity(day){
+    var sum = 0;
+    HIA_SYMPTOMS.forEach(function(s){
+      var v = day.hia && day.hia[s.id];
+      if(typeof v==="number") sum += v;
     });
+    return sum;
   }
+  function hiaCount(day){
+    var n = 0;
+    HIA_SYMPTOMS.forEach(function(s){
+      var v = day.hia && day.hia[s.id];
+      if(typeof v==="number" && v>0) n++;
+    });
+    return n;
+  }
+  function hiaTouched(day){
+    return !!(day.hia && HIA_SYMPTOMS.some(function(s){ return typeof day.hia[s.id]==="number"; }));
+  }
+  // The derived 0–10 today.symptomScore stays the single number the rest of
+  // the app (streaks, sparkline, history) already keys off — it's now just
+  // computed from the HIA severity score instead of tapped directly.
+  function syncSymptomScoreFromHIA(day){
+    if(!hiaTouched(day)) return;
+    day.symptomScore = Math.round((hiaSeverity(day)/HIA_MAX_SEVERITY)*10);
+  }
+
+  function renderHIASummary(){
+    var root = document.getElementById("hiaSummary");
+    if(!root) return;
+    var touched = hiaTouched(today);
+    var count = hiaCount(today), sev = hiaSeverity(today);
+    root.innerHTML =
+      '<div class="stat-tile"><b></b><span>Symptoms present</span></div>'+
+      '<div class="stat-tile"><b></b><span>Severity score</span></div>';
+    var vs = root.querySelectorAll(".stat-tile b");
+    vs[0].textContent = touched ? count+" / "+HIA_SYMPTOMS.length : "—";
+    vs[1].textContent = touched ? sev+" / "+HIA_MAX_SEVERITY : "—";
+  }
+
+  function renderHIA(){
+    var toggleBtn = document.getElementById("hiaToggleBtn");
+    var listRoot = document.getElementById("hiaList");
+    if(!toggleBtn || !listRoot) return;
+    listRoot.hidden = !hiaExpanded;
+    toggleBtn.textContent = hiaExpanded ? "Hide" : (hiaTouched(today) ? "Edit" : "Start");
+
+    if(hiaExpanded){
+      listRoot.innerHTML = "";
+      if(!today.hia) today.hia = {};
+      HIA_SYMPTOMS.forEach(function(s){
+        var val = today.hia[s.id];
+        var rated = typeof val==="number";
+        var row = document.createElement("div");
+        row.className = "hia-row"+(rated?" rated":"");
+        row.innerHTML = '<div class="hia-row-head"><span class="hia-name"></span><span class="hia-val"></span></div><div class="scale-row"></div>';
+        row.querySelector(".hia-name").textContent = s.label;
+        row.querySelector(".hia-val").textContent = rated ? val : "—";
+        listRoot.appendChild(row);
+        renderScale(row.querySelector(".scale-row"), rated?val:null, function(v){
+          today.hia[s.id] = v;
+          syncSymptomScoreFromHIA(today);
+          save();
+          renderHIA();
+          renderSparkline();
+        }, 6);
+      });
+    }
+    renderHIASummary();
+  }
+  document.getElementById("hiaToggleBtn").addEventListener("click", function(){
+    hiaExpanded = !hiaExpanded;
+    renderHIA();
+  });
+
   function renderAll(){
     renderHeader();
     renderStatus();
-    renderTodayScale();
+    renderHIA();
     renderSparkline();
     renderRhythm();
     renderStanding();
