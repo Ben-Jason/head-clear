@@ -68,6 +68,8 @@ function renderSettings(){
     el("div", { class: "k", text: "Heart-rate band" }),
     el("div", { class: "v" }, [el("span", { text: p.hrLow + "–" + p.hrHigh + " bpm  " }), el("button", { class: "link-btn", type: "button", text: "Edit", onclick: function(){ HC.editBand(); } })])
   ]));
+  box.appendChild(settingRow("Name on the weekly report", "Printed at the top of the PDF. Stays on this phone.",
+    el("input", { type: "text", maxlength: "60", placeholder: "Your name", value: p.name || "", onchange: function(e){ p.name = e.target.value.trim(); HC.save(); } })));
   box.appendChild(settingRow("Bedtime", "Screens-off time is worked out as 2 hours before this.",
     el("input", { type: "time", value: p.bedtime, onchange: function(e){ if(e.target.value){ p.bedtime = e.target.value; HC.save(); HC.renderAll(); } } })));
   var sel = el("select", { onchange: function(e){ p.allowedRise = +e.target.value; HC.save(); } });

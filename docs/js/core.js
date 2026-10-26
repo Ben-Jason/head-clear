@@ -170,7 +170,10 @@ HC.DEFAULT_PLAN = {
   rhythmOverrides: {},
   rhythmExtras: [],
   profile: null,
-  meds: null
+  meds: null,
+  reportContext: "",
+  painkillers: ["Paracetamol", "Ibuprofen", "Codeine-containing", "Other"],
+  triggerTags: ["Screens", "Noise", "Busy places", "Stress", "Poor sleep", "Exercise", "Travel / driving", "Skipped meal", "Heat", "Caffeine"]
 };
 
 function mergePlan(extra){
@@ -199,7 +202,7 @@ HC.applyPlanSettings = function(obj){
   var s = HC.state, p = s.profile;
   if(obj.profile && typeof obj.profile === "object"){
     var before = p.hrLow + "-" + p.hrHigh;
-    ["hrLow", "hrHigh", "bedtime", "allowedRise", "gymGapHours"].forEach(function(k){ if(obj.profile[k] !== undefined) p[k] = obj.profile[k]; });
+    ["hrLow", "hrHigh", "bedtime", "allowedRise", "gymGapHours", "name"].forEach(function(k){ if(obj.profile[k] !== undefined) p[k] = obj.profile[k]; });
     if(before !== p.hrLow + "-" + p.hrHigh) p.bandSince = HC.todayKey();
   }
   if(Array.isArray(obj.meds)) s.meds = obj.meds.map(function(m){ return { id: HC.uid(), name: String(m.name || ""), dose: String(m.dose || ""), when: m.when || "any" }; });
@@ -238,10 +241,23 @@ HC.typeLabel = function(id){
 HC.SLEEP_HOURS = [4, 5, 6, 7, 8, 9];
 HC.SLEEP_LATENCY = [{ v: 15, l: "≤15 min" }, { v: 30, l: "15–30" }, { v: 60, l: "30–60" }, { v: 90, l: "60+" }];
 
+// Daily extras that feed the weekly report (all generic; a plan file may override the tag lists).
+HC.LIGHTHEAD = [{ v: 0, l: "None" }, { v: 1, l: "Slight" }, { v: 2, l: "Clear" }, { v: 3, l: "Near-faint" }];
+HC.HRV_STATUS = ["Balanced", "Unbalanced", "Low", "Poor"];
+HC.HEAD_HOURS = [{ v: 0.5, l: "<1 h" }, { v: 2, l: "1–3 h" }, { v: 4.5, l: "3–6 h" }, { v: 8, l: "6+ h" }];
+HC.HEAD_LOC = ["Front", "Back / neck", "Sides", "Behind eyes", "All over"];
+HC.EVENT_TAGS = [
+  { id: "nearFaint", label: "Near-faint / blackout", flag: true },
+  { id: "knock", label: "Fall or knock to the head", flag: true },
+  { id: "vomit", label: "Vomiting", flag: true },
+  { id: "newSymptom", label: "New symptom" },
+  { id: "muchWorse", label: "Much worse than usual" }
+];
+
 /* ---------------- state ---------------- */
 function defaultProfile(){
   var t = HC.todayKey();
-  return { hrLow: 100, hrHigh: 110, bandSince: t, planStart: t, bedtime: "22:00", allowedRise: 1, gymGapHours: 3, physioHeadUpDown: false, gymOverride: false };
+  return { hrLow: 100, hrHigh: 110, bandSince: t, planStart: t, bedtime: "22:00", allowedRise: 1, gymGapHours: 3, physioHeadUpDown: false, gymOverride: false, name: "" };
 }
 function defaultMeds(){ return []; } // meds are entered by the user (or come from the plan file)
 HC.defaultState = function(){
@@ -250,6 +266,7 @@ HC.defaultState = function(){
     ladder: { started: false, currentStep: 0, stepStartedAt: null, history: [] },
     hidden: { rhythm: {}, standing: {} }, featureNotes: "",
     profile: defaultProfile(), meds: defaultMeds(), bctt: [], bcttNext: null, clearance: {}, ui: { avoidOpen: false },
+    tests: [], questions: [],
     custom: { items: {}, added: [], removedLabels: {} }
   };
 };
@@ -272,6 +289,8 @@ function load(){
     d.meds = Array.isArray(p.meds) ? p.meds : defaultMeds();
     d.bctt = Array.isArray(p.bctt) ? p.bctt : [];
     d.bcttNext = p.bcttNext || null;
+    d.tests = Array.isArray(p.tests) ? p.tests : [];
+    d.questions = Array.isArray(p.questions) ? p.questions : [];
     d.clearance = p.clearance && typeof p.clearance === "object" ? p.clearance : {};
     d.ui = Object.assign({ avoidOpen: false }, p.ui || {});
     var c = p.custom && typeof p.custom === "object" ? p.custom : {};
@@ -282,16 +301,19 @@ function load(){
 HC.state = load();
 
 function emptyDay(){
-  return { symptomScore: null, wake: {}, midday: {}, afternoon: {}, evening: {}, bed: {}, standing: {}, journal: "", doses: [], hia: {}, sessions: [], sleep: {}, meds: {} };
+  return { symptomScore: null, wake: {}, midday: {}, afternoon: {}, evening: {}, bed: {}, standing: {}, journal: "", doses: [], hia: {}, sessions: [], sleep: {}, meds: {}, auto: {}, head: {}, ev: { trig: [], evt: [] } };
 }
 // getDay creates the day if missing (use for today / explicit writes); peekDay never creates.
 HC.getDay = function(key){
   var s = HC.state;
   var d = s.days[key];
   if(!d) d = s.days[key] = emptyDay();
-  ["wake", "midday", "afternoon", "evening", "bed", "standing", "hia", "sleep", "meds"].forEach(function(k){ if(!d[k] || typeof d[k] !== "object") d[k] = {}; });
+  ["wake", "midday", "afternoon", "evening", "bed", "standing", "hia", "sleep", "meds", "auto", "head"].forEach(function(k){ if(!d[k] || typeof d[k] !== "object") d[k] = {}; });
   if(!Array.isArray(d.sessions)) d.sessions = [];
   if(!Array.isArray(d.doses)) d.doses = [];
+  if(!d.ev || typeof d.ev !== "object") d.ev = {};
+  if(!Array.isArray(d.ev.trig)) d.ev.trig = [];
+  if(!Array.isArray(d.ev.evt)) d.ev.evt = [];
   if(typeof d.journal !== "string") d.journal = "";
   return d;
 };
