@@ -7,6 +7,7 @@
 "use strict";
 var HC = window.HC, el = HC.el, $ = HC.$;
 
+var NPAGES = 3;
 var PW = 794, PH = 1123, M = 36, CW = PW - 2 * M, SCALE = 2;
 var C = {
   ink: "#1b2a24", mute: "#5d6b63", faint: "#8a958d", line: "#d9dfd8", panel: "#f3f6f2", paper: "#ffffff",
@@ -209,8 +210,8 @@ function header(ctx, R, tag, pageNo){
   txt(ctx, title, M, pageNo === 1 ? 54 : 50, { size: pageNo === 1 ? 24 : 20, weight: 700, color: "#ffffff", font: F.serif, maxW: 480 });
   txt(ctx, R.range, M, pageNo === 1 ? 74 : 66, { size: 11, color: "#cfe6dc", maxW: 500 });
   // pulse line + audience tag on the right
-  ctx.beginPath(); ctx.moveTo(PW - 190, 30); ctx.lineTo(PW - 160, 30); ctx.lineTo(PW - 150, 44); ctx.lineTo(PW - 136, 14); ctx.lineTo(PW - 126, 36); ctx.lineTo(PW - 118, 30); ctx.lineTo(PW - M, 30);
-  ctx.strokeStyle = "#6fbca2"; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.stroke();
+  if(pageNo === 1){ ctx.beginPath(); ctx.moveTo(PW - 190, 30); ctx.lineTo(PW - 160, 30); ctx.lineTo(PW - 150, 44); ctx.lineTo(PW - 136, 14); ctx.lineTo(PW - 126, 36); ctx.lineTo(PW - 118, 30); ctx.lineTo(PW - M, 30);
+  ctx.strokeStyle = "#6fbca2"; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.stroke(); }
   var tw = measure(ctx, tag.toUpperCase(), { size: 9, weight: 700 }) + 20;
   rrect(ctx, PW - M - tw, h - 34, tw, 20, 10, "rgba(255,255,255,0.14)");
   txt(ctx, tag.toUpperCase(), PW - M - tw / 2, h - 20, { size: 9, weight: 700, color: "#ffffff", align: "center" });
@@ -218,7 +219,7 @@ function header(ctx, R, tag, pageNo){
 function footer(ctx, R, pageNo){
   hline(ctx, M, PW - M, PH - 40, C.line, 1);
   txt(ctx, "Self-reported in the Head Clear app and not a diagnosis. Generated " + R.generated + ".", M, PH - 24, { size: 8.5, color: C.faint });
-  txt(ctx, "Page " + pageNo + " of 2", PW - M, PH - 24, { size: 8.5, color: C.faint, align: "right" });
+  txt(ctx, "Page " + pageNo + " of " + NPAGES, PW - M, PH - 24, { size: 8.5, color: C.faint, align: "right" });
 }
 function tile(ctx, x, y, w, h, label, value, unit, delta, sub, noPrev){
   rrect(ctx, x, y, w, h, 8, C.panel, C.line);
@@ -304,7 +305,7 @@ function page1(R){
 
   // day-by-day grid
   y = section(ctx, "The week day by day", M, y, CW);
-  var LW = 112, cw = (CW - LW) / 7, rh = 20;
+  var LW = 112, cw = (CW - LW) / 7, rh = 22;
   // header cells
   c.days.forEach(function(m, i){
     var cx = M + LW + i * cw, isEnd = i === 6;
@@ -324,13 +325,13 @@ function page1(R){
   rows.forEach(function(r){
     var any = c.days.some(function(m){ var v = r.get(m); return v !== null && v !== undefined; });
     if(!any && !r.core) return;
-    txt(ctx, r.label, M, y + 14, { size: 9.5, weight: 600, color: C.ink, maxW: LW - 6 });
+    txt(ctx, r.label, M, y + 15, { size: 9.5, weight: 600, color: C.ink, maxW: LW - 6 });
     c.days.forEach(function(m, i){
       var v = r.get(m), cx = M + LW + i * cw;
-      if(v === null || v === undefined){ txt(ctx, "–", cx + cw / 2, y + 14, { size: 10, color: C.faint, align: "center" }); return; }
+      if(v === null || v === undefined){ txt(ctx, "–", cx + cw / 2, y + 15, { size: 10, color: C.faint, align: "center" }); return; }
       var k = r.cls ? CELL[r.cls(v)] : CELL.n;
       rrect(ctx, cx + 2, y + 1, cw - 4, rh - 3, 4, k.bg);
-      txt(ctx, r.fmt ? r.fmt(v) : String(v), cx + cw / 2, y + 14.5, { size: 10, weight: 600, color: k.fg, align: "center" });
+      txt(ctx, r.fmt ? r.fmt(v) : String(v), cx + cw / 2, y + 15.5, { size: 10, weight: 600, color: k.fg, align: "center" });
     });
     y += rh;
   });
@@ -354,8 +355,18 @@ function page1(R){
 
   // resting HR, HRV and sleep score on one graph
   y = section(ctx, "Resting HR, overnight HRV and sleep score", M, y, CW);
-  var vh = drawVitals(ctx, M, y, CW, 122, c.days);
-  y += vh + 16;
+  var vh = drawVitals(ctx, M, y, CW, 380, c.days);
+  y += vh + 20;
+
+  footer(ctx, R, 1);
+  return P.cv;
+}
+
+/* ---------------- page 2 — doctor summary, continued ---------------- */
+function pageDoc2(R){
+  var P = newCanvas(), ctx = P.ctx, c = R.cur;
+  header(ctx, R, "Doctor · continued", 2);
+  var p = R.prev, y = 100;
 
   // two columns: symptoms | events & triggers
   var colW = (CW - 24) / 2, xL = M, xR = M + colW + 24, top = y;
@@ -400,63 +411,70 @@ function page1(R){
       px += w + 6;
     });
   }
-  y = Math.max(yl + 8, yr + 40) + 14;
-  y = Math.max(y, top + 150) + 6;
+  y = Math.max(yl + 8, yr + 40) + 22;
 
-  // two columns: meds | training snapshot
-  var yl2 = section(ctx, "Medicines & supplements", xL, y, colW);
-  if(!c.meds.length) txt(ctx, "None on the list.", xL, yl2 + 8, { size: 10, color: C.mute });
-  c.meds.slice(0, 5).forEach(function(md){
-    txt(ctx, md.name, xL, yl2 + 10, { size: 10, maxW: 140 });
-    md.days.forEach(function(on, i){ rrect(ctx, xL + 148 + i * 20, yl2 + 1, 16, 12, 3, on ? C.accent : C.panel, on ? null : C.line); });
-    var n = md.days.filter(Boolean).length;
-    txt(ctx, n + "/7", xL + 148 + 7 * 20 + 6, yl2 + 10.5, { size: 10, weight: 700, font: F.mono, color: n >= 6 ? C.good : n >= 4 ? C.warn : C.danger });
-    yl2 += 20;
+
+  y = section(ctx, "Medicines & supplements", M, y, CW);
+  if(!c.meds.length) { txt(ctx, "None on the list.", M, y + 8, { size: 11, color: C.mute }); y += 28; }
+  else {
+    var bx = M + 220, bw = 34;
+    c.days.forEach(function(m, i){ txt(ctx, HC.fmtDate(m.key, { weekday: "short" }), bx + i * (bw + 6) + bw / 2, y + 2, { size: 8.5, weight: 700, color: C.mute, align: "center" }); });
+    y += 10;
+    c.meds.slice(0, 8).forEach(function(md){
+      txt(ctx, md.name, M, y + 16, { size: 11.5, weight: 600, maxW: 210 });
+      md.days.forEach(function(on, i){ rrect(ctx, bx + i * (bw + 6), y + 3, bw, 18, 4, on ? C.accent : C.panel, on ? null : C.line); });
+      var n = md.days.filter(Boolean).length;
+      txt(ctx, n + "/7", bx + 7 * (bw + 6) + 8, y + 17, { size: 12, weight: 700, font: F.mono, color: n >= 6 ? C.good : n >= 4 ? C.warn : C.danger });
+      y += 30;
+    });
+    y += 6;
+  }
+  y += 14;
+
+  y = section(ctx, "Training this week", M, y, CW);
+  var stats = [[String(c.sessions.length), "sessions"], [String(c.nTol), "tolerated"], [String(c.nFlag), "flagged"], [c.cardioMin ? String(c.cardioMin) : "0", "cardio minutes"]];
+  var sw = (CW - 3 * 10) / 4;
+  stats.forEach(function(st, i){
+    var bad = i === 2 && c.nFlag > 0, sx = M + i * (sw + 10);
+    rrect(ctx, sx, y, sw, 62, 8, bad ? C.dangerSoft : C.panel, bad ? null : C.line);
+    txt(ctx, st[0], sx + sw / 2, y + 31, { size: 24, weight: 700, font: F.mono, color: bad ? C.dangerInk : C.deep, align: "center" });
+    txt(ctx, st[1], sx + sw / 2, y + 50, { size: 9.5, color: C.mute, align: "center" });
   });
-  var yr2 = section(ctx, "Training this week", xR, y, colW);
-  var stats = [[String(c.sessions.length), "sessions"], [String(c.nTol), "tolerated"], [String(c.nFlag), "flagged"], [c.cardioMin ? String(c.cardioMin) : "0", "cardio min"]];
-  var sw = (colW - 18) / 4;
-  stats.forEach(function(s, i){
-    var bad = i === 2 && c.nFlag > 0;
-    rrect(ctx, xR + i * (sw + 6), yr2, sw, 44, 8, bad ? C.dangerSoft : C.panel, bad ? null : C.line);
-    txt(ctx, s[0], xR + i * (sw + 6) + sw / 2, yr2 + 23, { size: 18, weight: 700, font: F.mono, color: bad ? C.dangerInk : C.deep, align: "center" });
-    txt(ctx, s[1], xR + i * (sw + 6) + sw / 2, yr2 + 37, { size: 8.5, color: C.mute, align: "center" });
-  });
-  yr2 += 56;
+  y += 76;
   var ceilTxt = c.peakMax !== null ? "Highest cardio heart rate " + c.peakMax + " bpm against a ceiling of " + R.profile.hrHigh + " bpm." : "No cardio heart rates logged this week.";
-  yr2 = wrap(ctx, ceilTxt + " Phase " + R.ps.phase + ", " + R.profile.hrLow + "–" + R.profile.hrHigh + " bpm band. Detail on page 2.", xR, yr2 + 2, colW, 13, { size: 9.5, color: C.mute }, 3);
-  y = Math.max(yl2, yr2) + 14;
+  y = wrap(ctx, ceilTxt + " Phase " + R.ps.phase + ", " + R.profile.hrLow + "–" + R.profile.hrHigh + " bpm band. Session-by-session detail is on page 3.", M, y + 2, CW, 15, { size: 10.5, color: C.mute }, 3) + 14;
 
-  // notes + questions (questions are reserved space so they are never squeezed out)
-  var nq = Math.min(R.questions.length, 6), qh = nq ? 28 + nq * 18 : 0, reserve = nq ? qh + 12 : 0, limit = PH - 52 - reserve;
-  if(c.notes.length && y < limit - 44){
+  if(c.notes.length){
     y = section(ctx, "From the daily notes", M, y, CW);
-    c.notes.slice(-3).forEach(function(n){
-      if(y > limit - 18) return;
-      txt(ctx, dayLabel(n.date, { weekday: "short", day: "numeric" }), M, y + 9, { size: 9.5, weight: 700, color: C.accent });
-      y = wrap(ctx, n.text, M + 56, y + 9, CW - 56, 12.5, { size: 9.5, color: C.ink }, 2) + 4;
+    c.notes.slice(-6).forEach(function(n){
+      if(y > PH - 260) return;
+      txt(ctx, dayLabel(n.date, { weekday: "short", day: "numeric" }), M, y + 11, { size: 10.5, weight: 700, color: C.accent });
+      y = wrap(ctx, n.text, M + 64, y + 11, CW - 64, 15, { size: 10.5, color: C.ink }, 3) + 8;
     });
-    y += 4;
+    y += 6;
   }
+
+  var nq = Math.min(R.questions.length, 8);
   if(nq){
-    y = Math.min(y, PH - 52 - qh);
+    var qh = 36 + nq * 22;
+    y = Math.min(y, PH - 56 - qh);
     rrect(ctx, M, y, CW, qh, 10, C.accentSoft);
-    txt(ctx, "QUESTIONS FOR THE APPOINTMENT", M + 14, y + 20, { size: 9.5, weight: 700, color: C.deep });
-    var qy = y + 40;
-    R.questions.slice(0, 6).forEach(function(q, i){
-      txt(ctx, (i + 1) + ".", M + 14, qy, { size: 10.5, weight: 700, color: C.deep });
-      txt(ctx, q.text, M + 30, qy, { size: 10.5, color: C.ink, maxW: CW - 46 });
-      qy += 18;
+    txt(ctx, "QUESTIONS FOR THE APPOINTMENT", M + 16, y + 24, { size: 10, weight: 700, color: C.deep });
+    var qy = y + 48;
+    R.questions.slice(0, 8).forEach(function(q, i){
+      txt(ctx, (i + 1) + ".", M + 16, qy, { size: 11.5, weight: 700, color: C.deep });
+      txt(ctx, q.text, M + 36, qy, { size: 11.5, color: C.ink, maxW: CW - 56 });
+      qy += 22;
     });
   }
-  footer(ctx, R, 1);
+  footer(ctx, R, 2);
   return P.cv;
 }
 
-/* ---------------- page 2 — physio training & rehab ---------------- */
-function page2(R){
+/* ---------------- page 3 — physio training & rehab ---------------- */
+function page3(R){
   var P = newCanvas(), ctx = P.ctx, c = R.cur, p = R.profile;
-  header(ctx, R, "Physio detail", 2);
+  header(ctx, R, "Physio detail", 3);
   var y = 92;
 
   // plan status tiles
@@ -630,7 +648,7 @@ function page2(R){
       y = wrap(ctx, t, M + 14, y + 9, CW - 16, 12.5, { size: 10, color: C.ink }, 2) + 3;
     });
   }
-  footer(ctx, R, 2);
+  footer(ctx, R, 3);
   return P.cv;
 }
 
@@ -723,7 +741,7 @@ function renderCard(){
   if(!box) return;
   box.innerHTML = "";
   box.appendChild(el("div", { class: "section-title", style: "margin-bottom:6px;", text: "Weekly report" }));
-  box.appendChild(el("p", { class: "small", text: "Two pages: a summary for your doctor and the training detail for your physio. Built on this phone, then shared as a PDF." }));
+  box.appendChild(el("p", { class: "small", text: "Three pages: a two-page summary for your doctor and the training detail for your physio. Built on this phone, then shared as a PDF." }));
   var end = endKey(), label = (weekOffset === 0 ? "Last 7 days" : "Week") + " · " + HC.fmtDate(HC.addDays(end, -6), { day: "numeric", month: "short" }) + " – " + HC.fmtDate(end, { day: "numeric", month: "short" });
   box.appendChild(el("div", { class: "wk-nav" }, [
     el("button", { type: "button", "aria-label": "Earlier week", text: "‹", onclick: function(){ weekOffset--; renderCard(); } }),
@@ -754,7 +772,7 @@ function fileName(R){ return "head-clear-week-ending-" + R.end + ".pdf"; }
 
 function openPreview(){
   var R = buildReport(endKey()), cvs;
-  try{ cvs = [page1(R), page2(R)]; }catch(e){ console.error(e); HC.notice("Couldn't build the report", [String(e && e.message || e)]); return; }
+  try{ cvs = [page1(R), pageDoc2(R), page3(R)]; }catch(e){ console.error(e); HC.notice("Couldn't build the report", [String(e && e.message || e)]); return; }
   closePreview();
   overlay = el("div", { id: "reportOverlay" });
   var pages = el("div", { class: "rp-pages" }, cvs);
@@ -816,7 +834,7 @@ function renderVitalsCard(){
 
 HC.buildWeekReport = buildReport;
 HC.weekReportText = function(end){ return buildText(buildReport(end || HC.todayKey())); };
-HC.drawReportPages = function(end){ var R = buildReport(end || HC.todayKey()); return [page1(R), page2(R)]; };
+HC.drawReportPages = function(end){ var R = buildReport(end || HC.todayKey()); return [page1(R), pageDoc2(R), page3(R)]; };
 HC.reportPdf = function(end){
   var cvs = HC.drawReportPages(end);
   return Promise.all(cvs.map(canvasJpeg)).then(makePdf);
