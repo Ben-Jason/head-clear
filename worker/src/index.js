@@ -24,6 +24,22 @@ async function sendToSubscription(subscription, payload, env) {
   return fetch(subscription.endpoint, init);
 }
 
+// SAST is UTC+2 with no daylight saving, so a fixed offset is exact.
+function sastToday() {
+  return new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+function daysBetween(a, b) {
+  return Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000);
+}
+async function getConfig(env) {
+  try {
+    const raw = await env.SUBS.get("config");
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -42,6 +58,14 @@ export default {
         return json({ error: "invalid subscription" }, 400);
       }
       await env.SUBS.put("sub", JSON.stringify(subscription));
+      return json({ ok: true });
+    }
+
+    if (url.pathname === "/config" && request.method === "POST") {
+      // Only the next BCTT date is stored — nothing else about the user.
+      const body = await request.json().catch(() => ({}));
+      const due = body && typeof body.bcttDue === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.bcttDue) ? body.bcttDue : null;
+      await env.SUBS.put("config", JSON.stringify({ bcttDue: due }));
       return json({ ok: true });
     }
 
@@ -74,9 +98,24 @@ export default {
 
     const subscription = JSON.parse(raw);
     const isMorning = event.cron === "0 6 * * *";
-    const payload = isMorning
-      ? { title: "Head Clear — morning check-in", body: "Log your wake-up habits and how you're feeling today.", tag: "headclear-am" }
-      : { title: "Head Clear — evening check-in", body: "Log today's symptoms, journal, and rhythm before bed.", tag: "headclear-pm" };
+    let payload;
+    if (isMorning) {
+      let body = "Log how you slept and how you feel after yesterday's session.";
+      const cfg = await getConfig(env);
+      if (cfg.bcttDue) {
+        const n = daysBetween(sastToday(), cfg.bcttDue); // days until the BCTT retest
+        if (n === 1) body += " BCTT retest is tomorrow.";
+        else if (n === 0) body += " BCTT retest is due today.";
+        else if (n === -2) body += " Your BCTT retest is 2 days overdue.";
+      }
+      payload = { title: "Head Clear — morning check-in", body, tag: "headclear-am" };
+    } else {
+      payload = {
+        title: "Head Clear — evening check-in",
+        body: "Log today's symptoms and sessions, and take your evening medication. Screens off soon.",
+        tag: "headclear-pm",
+      };
+    }
 
     const res = await sendToSubscription(subscription, payload, env);
     if (!res.ok && (res.status === 404 || res.status === 410)) {
