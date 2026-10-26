@@ -486,9 +486,9 @@ function page2(R){
   var maxRows = 11, shown = list.slice(-maxRows);
   if(!list.length) txt(ctx, "No sessions logged this week.", M + 4, y + 18, { size: 10, color: C.mute });
   shown.forEach(function(x, i){
-    var s = x.s, v = x.v, rh = 23, ry = y + 1;
+    var s = x.s, v = x.v, rh = 25, ry = y + 1;
     if(i % 2 === 0) { ctx.fillStyle = C.panel; ctx.fillRect(M, ry, CW, rh); }
-    var by = ry + 15;
+    var by = ry + 16;
     txt(ctx, dayLabel(x.date, { weekday: "short", day: "numeric" }), cols[0][2] + 4, by, { size: 9.5, weight: 600 });
     txt(ctx, HC.typeLabel(s.type) + (s.duration ? " " + s.duration + " min" : ""), cols[1][2] + 4, by, { size: 9.5, maxW: cols[1][0] - 6 });
     var hr = s.type === "cardio" ? (s.avgHr || "–") + " / " + (s.peakHr || "–") : "–";
@@ -516,7 +516,7 @@ function page2(R){
   else {
     var vals = []; cs.forEach(function(r){ vals.push(r.s.peakHr); vals.push(r.s.ceiling || p.hrHigh); });
     var lo = Math.floor((Math.min.apply(null, vals) - 15) / 5) * 5, hi = Math.ceil((Math.max.apply(null, vals) + 5) / 5) * 5;
-    var ch = 108, px0 = M + 30, pw = CW - 30, py0 = y + 10;
+    var ch = 128, px0 = M + 30, pw = CW - 30, py0 = y + 10;
     function yOf(v){ return py0 + ch - (v - lo) / (hi - lo) * ch; }
     var step = (hi - lo) > 40 ? 10 : 5;
     for(var g = lo; g <= hi; g += step){
@@ -629,12 +629,6 @@ function page2(R){
       circle(ctx, M + 4, y + 5, 3, flagged.length ? C.danger : C.good);
       y = wrap(ctx, t, M + 14, y + 9, CW - 16, 12.5, { size: 10, color: C.ink }, 2) + 3;
     });
-  }
-  // the same vitals graph, so the physio has it on their page too
-  y += 14;
-  if(y + 20 + 112 < PH - 46){
-    y = section(ctx, "Resting HR, overnight HRV and sleep score", M, y, CW);
-    drawVitals(ctx, M, y, CW, 112, c.days);
   }
   footer(ctx, R, 2);
   return P.cv;
