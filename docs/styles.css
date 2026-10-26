@@ -488,3 +488,15 @@ button.test-row .k{flex-shrink:0;}
 #reportOverlay canvas{flex-shrink:0;}
 #reportOverlay canvas.zoom{width:240%; max-width:none;}
 #reportOverlay .rp-bar b{font-size:13px;}
+
+#rtOverlay{position:fixed; inset:0; z-index:80; background:var(--bg); display:flex; flex-direction:column;}
+#rtOverlay .rt-top{display:flex; align-items:center; justify-content:space-between; padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;}
+#rtOverlay .rt-pad{flex:1; margin:0 12px calc(env(safe-area-inset-bottom) + 14px); border-radius:18px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center; padding:24px; user-select:none; -webkit-user-select:none; touch-action:manipulation; color:#fff;}
+#rtOverlay .rt-pad.idle{background:#4b5a52;}
+#rtOverlay .rt-pad.wait{background:#ae2e21;}
+#rtOverlay .rt-pad.early{background:#af6317;}
+#rtOverlay .rt-pad.go{background:#2f9e57;}
+#rtOverlay .rt-big{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:44px;}
+#rtOverlay .rt-small{font-size:14px; opacity:.9; max-width:280px; line-height:1.5;}
+#rtOverlay .rt-actions{display:flex; gap:10px; margin-top:18px; width:100%; max-width:320px;}
+#rtOverlay .rt-actions .btn{flex:1;}

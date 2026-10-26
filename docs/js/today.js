@@ -150,19 +150,12 @@ function renderSparkline(){
   cols.forEach(function(c){ root.appendChild(c); });
 }
 
-/* ---------------- sleep ---------------- */
-function chips(options, current, onPick){
-  var wrap = el("div", { class: "sleep-chips" });
-  options.forEach(function(o){
-    wrap.appendChild(el("button", { type: "button", class: current === o.v ? "on" : "", text: o.l, onclick: function(){ onPick(o.v); } }));
-  });
-  return wrap;
-}
+/* ---------------- sleep (Garmin sleep score) ---------------- */
 function sleepAvg(){
   var sum = 0, n = 0, t = HC.todayKey();
   for(var i = 0; i < 7; i++){
     var d = HC.peekDay(HC.addDays(t, -i));
-    if(d && typeof d.sleep.hours === "number"){ sum += d.sleep.hours; n++; }
+    if(d && typeof d.sleep.score === "number"){ sum += d.sleep.score; n++; }
   }
   return n ? (sum / n) : null;
 }
@@ -170,13 +163,18 @@ function renderSleep(){
   var box = $("sleepCard"), sl = HC.today().sleep;
   box.innerHTML = "";
   box.appendChild(el("div", { class: "section-title", text: "Last night's sleep" }));
-  function group(label, node){ return el("div", { class: "sleep-group" }, [el("label", { text: label }), node]); }
-  function set(k, v){ HC.today().sleep[k] = v; HC.save(); renderSleep(); }
-  box.appendChild(group("Hours slept", chips(HC.SLEEP_HOURS.map(function(h){ return { v: h, l: h === 4 ? "≤4" : h === 9 ? "9+" : String(h) }; }), sl.hours, function(v){ set("hours", v); })));
-  box.appendChild(group("Time to fall asleep", chips(HC.SLEEP_LATENCY, sl.latency, function(v){ set("latency", v); })));
-  box.appendChild(group("How rested do you feel?", chips([1, 2, 3, 4, 5].map(function(q){ return { v: q, l: String(q) }; }), sl.quality, function(v){ set("quality", v); })));
+  box.appendChild(el("p", { class: "small", style: "margin:4px 2px 0;", text: "Copy the score from the Garmin app: Sleep → last night's score out of 100." }));
+  var inp = el("input", { type: "number", inputmode: "numeric", min: 0, max: 100, step: "1", placeholder: "e.g. 78", value: typeof sl.score === "number" ? String(sl.score) : "" });
+  inp.addEventListener("change", function(){
+    var v = inp.value === "" ? null : Math.round(+inp.value);
+    if(v !== null && (isNaN(v) || v < 0 || v > 100)){ inp.classList.add("err"); return; }
+    inp.classList.remove("err");
+    var d = HC.today(); if(v === null) delete d.sleep.score; else d.sleep.score = v;
+    HC.save(); renderSleep();
+  });
+  box.appendChild(el("div", { class: "field", style: "margin-top:12px;" }, [el("label", { text: "Garmin sleep score (0–100)" }), inp]));
   var avg = sleepAvg();
-  box.appendChild(el("p", { class: "small", style: "margin-top:12px;", text: avg === null ? "1 = wrecked, 5 = fully rested. Log each morning to see your 7-night average." : "7-night average: " + avg.toFixed(1) + " h. 1 = wrecked, 5 = fully rested." }));
+  box.appendChild(el("p", { class: "small", style: "margin-top:12px;", text: avg === null ? "Log it each morning to see your 7-night average." : "7-night average: " + Math.round(avg) + "/100." }));
 }
 
 /* ---------------- checklist rows (with full editing) ---------------- */

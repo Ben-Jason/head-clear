@@ -238,11 +238,8 @@ HC.typeLabel = function(id){
   return id;
 };
 
-HC.SLEEP_HOURS = [4, 5, 6, 7, 8, 9];
-HC.SLEEP_LATENCY = [{ v: 15, l: "≤15 min" }, { v: 30, l: "15–30" }, { v: 60, l: "30–60" }, { v: 90, l: "60+" }];
 
 // Daily extras that feed the weekly report (all generic; a plan file may override the tag lists).
-HC.LIGHTHEAD = [{ v: 0, l: "None" }, { v: 1, l: "Slight" }, { v: 2, l: "Clear" }, { v: 3, l: "Near-faint" }];
 HC.HRV_STATUS = ["Balanced", "Unbalanced", "Low", "Poor"];
 HC.HEAD_HOURS = [{ v: 0.5, l: "<1 h" }, { v: 2, l: "1–3 h" }, { v: 4.5, l: "3–6 h" }, { v: 8, l: "6+ h" }];
 HC.HEAD_LOC = ["Front", "Back / neck", "Sides", "Behind eyes", "All over"];

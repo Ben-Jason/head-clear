@@ -41,12 +41,9 @@ function summarize(keys){
       m.sx = isNum(d.symptomScore) ? d.symptomScore : null;
       m.hia = touched ? HC.hiaSeverity(d) : null;
       m.hiaN = touched ? HC.hiaCount(d) : null;
-      m.sleep = isNum(d.sleep.hours) ? d.sleep.hours : null;
-      m.rest = isNum(d.sleep.quality) ? d.sleep.quality : null;
+      m.sleep = isNum(d.sleep.score) ? d.sleep.score : null;
       m.rhr = isNum(d.auto.rhr) ? d.auto.rhr : null;
       m.hrv = isNum(d.auto.hrv) ? d.auto.hrv : null;
-      m.lh = isNum(d.auto.lightheaded) ? d.auto.lightheaded : null;
-      m.fluids = isNum(d.auto.fluids) ? d.auto.fluids : null;
       m.headPeak = isNum(d.head.peak) ? d.head.peak : null;
       m.headHours = isNum(d.head.hours) ? d.head.hours : null;
       m.pk = d.head.pk ? sum(Object.keys(d.head.pk).map(function(n){ return d.head.pk[n]; })) : null;
@@ -73,11 +70,8 @@ function summarize(keys){
   S.hia = mean(D.map(function(m){ return m.hia; }));
   S.hiaN = mean(D.map(function(m){ return m.hiaN; }));
   S.sleep = mean(D.map(function(m){ return m.sleep; }));
-  S.rest = mean(D.map(function(m){ return m.rest; }));
   S.rhr = mean(D.map(function(m){ return m.rhr; }));
   S.hrv = mean(D.map(function(m){ return m.hrv; }));
-  S.fluids = mean(D.map(function(m){ return m.fluids; }));
-  S.lhDays = D.filter(function(m){ return isNum(m.lh) && m.lh >= 1; }).length;
   S.headLogged = D.filter(function(m){ return m.headPeak !== null && m.headPeak !== undefined; }).length;
   S.headDays = D.filter(function(m){ return isNum(m.headPeak) && m.headPeak > 0; }).length;
   S.headMax = S.headLogged ? Math.max.apply(null, D.map(function(m){ return isNum(m.headPeak) ? m.headPeak : 0; })) : null;
@@ -238,6 +232,56 @@ function tile(ctx, x, y, w, h, label, value, unit, delta, sub, noPrev){
   if(sub) txt(ctx, sub, x + 10, y + 79, { size: 8.5, color: C.mute, maxW: w - 16 });
 }
 
+/* ---------------- resting HR + HRV + sleep score on one graph ---------------- */
+var VITALS = [
+  { key: "rhr", label: "Resting HR", short: "Resting HR", unit: "bpm", col: "#ae2e21" },
+  { key: "hrv", label: "Overnight HRV", short: "HRV", unit: "ms", col: "#2c6b57" },
+  { key: "sleep", label: "Sleep score", short: "Sleep", unit: "", col: "#3a6ea5" }
+];
+// Draws the three series against one shared axis. Returns the height used.
+function drawVitals(ctx, x, y, w, h, days){
+  var vals = [];
+  VITALS.forEach(function(v){ days.forEach(function(m){ if(isNum(m[v.key])) vals.push(m[v.key]); }); });
+  // legend with weekly averages
+  var lx = x;
+  VITALS.forEach(function(v){
+    var avg = mean(days.map(function(m){ return m[v.key]; }));
+    hline(ctx, lx, lx + 16, y + 5, v.col, 2.5); circle(ctx, lx + 8, y + 5, 3.2, v.col);
+    var t = w < 500 ? v.short : v.label + (avg === null ? "" : "  avg " + Math.round(avg) + (v.unit ? " " + v.unit : ""));
+    lx += 22 + txt(ctx, t, lx + 22, y + 9, { size: 9.5, weight: 600, color: C.ink }) + 18;
+  });
+  var top = y + 22, ph = h - 22 - 16;
+  if(vals.length < 2){
+    txt(ctx, "Not enough Garmin numbers logged this week to draw a graph.", x, top + 24, { size: 10, color: C.mute });
+    return 22 + 44;
+  }
+  var lo = Math.floor((Math.min.apply(null, vals) - 4) / 10) * 10, hi = Math.ceil((Math.max.apply(null, vals) + 4) / 10) * 10;
+  var px0 = x + 28, pw = w - 28 - 38;
+  function X(i){ return px0 + pw * (i + 0.5) / 7; }
+  function Y(v){ return top + ph - (v - lo) / (hi - lo) * ph; }
+  var step = (hi - lo) > 60 ? 20 : 10;
+  for(var g = lo; g <= hi; g += step){
+    hline(ctx, px0, px0 + pw, Y(g), "#e8ede7", 1);
+    txt(ctx, String(g), px0 - 6, Y(g) + 3, { size: 8, color: C.faint, align: "right" });
+  }
+  days.forEach(function(m, i){ txt(ctx, HC.fmtDate(m.key, { weekday: "short" }), X(i), top + ph + 13, { size: 8.5, color: C.mute, align: "center" }); });
+  var ends = [];
+  VITALS.forEach(function(v){
+    var pts = [];
+    days.forEach(function(m, i){ if(isNum(m[v.key])) pts.push({ x: X(i), y: Y(m[v.key]), v: m[v.key] }); });
+    if(!pts.length) return;
+    ctx.beginPath(); pts.forEach(function(p, i){ if(i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); });
+    ctx.strokeStyle = v.col; ctx.lineWidth = 2.2; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.stroke();
+    pts.forEach(function(p){ circle(ctx, p.x, p.y, 3.6, "#ffffff"); circle(ctx, p.x, p.y, 2.2, v.col); });
+    ends.push({ v: v, y: pts[pts.length - 1].y, x: pts[pts.length - 1].x, val: pts[pts.length - 1].v });
+  });
+  // end-of-line values on the right, nudged apart so they never overlap
+  ends.sort(function(a, b){ return a.y - b.y; });
+  for(var e = 1; e < ends.length; e++) if(ends[e].y - ends[e - 1].y < 11) ends[e].y = ends[e - 1].y + 11;
+  ends.forEach(function(en){ txt(ctx, String(en.val), en.x + 9, en.y + 3, { size: 9, weight: 700, font: F.mono, color: en.v.col }); });
+  return h;
+}
+
 /* ---------------- page 1 — doctor summary ---------------- */
 function page1(R){
   var P = newCanvas(), ctx = P.ctx, c = R.cur, p = R.prev, np = !R.hasPrev;
@@ -251,7 +295,7 @@ function page1(R){
   var tiles = [
     ["Symptoms", c.sx === null ? null : fmt(c.sx, 1), "/10", dlt(c.sx, p.sx, 1, "low"), c.sxN + " of 7 days rated"],
     ["HIA severity", c.hia === null ? null : fmt(c.hia, 0), "/132", dlt(c.hia, p.hia, 0, "low"), c.hiaN === null ? "no full evaluations" : "avg " + fmt(c.hiaN, 0) + " of 22 symptoms"],
-    ["Sleep", c.sleep === null ? null : fmt(c.sleep, 1), "h", dlt(c.sleep, p.sleep, 1, "high"), c.rest === null ? "nightly average" : "rested " + fmt(c.rest, 1) + "/5 on average"],
+    ["Sleep score", c.sleep === null ? null : fmt(c.sleep, 0), "/100", dlt(c.sleep, p.sleep, 0, "high"), c.sleep === null ? "Garmin score, not logged" : "Garmin score, nightly average"],
     ["Headache", c.headLogged ? String(c.headDays) : null, "/7 days", dlt(c.headDays, p.headDays, 0, "low"), c.headLogged ? "peak " + c.headMax + "/10 · painkillers " + c.pkDays + " day" + (c.pkDays === 1 ? "" : "s") : "not logged"],
     ["Overnight HRV", c.hrv === null ? null : fmt(c.hrv, 0), "ms", dlt(c.hrv, p.hrv, 0, "high"), c.rhr === null ? "resting HR not logged" : "resting HR " + fmt(c.rhr, 0) + " bpm"]
   ];
@@ -260,7 +304,7 @@ function page1(R){
 
   // day-by-day grid
   y = section(ctx, "The week day by day", M, y, CW);
-  var LW = 112, cw = (CW - LW) / 7, rh = 21;
+  var LW = 112, cw = (CW - LW) / 7, rh = 20;
   // header cells
   c.days.forEach(function(m, i){
     var cx = M + LW + i * cw, isEnd = i === 6;
@@ -271,13 +315,11 @@ function page1(R){
   var rows = [
     { label: "Symptoms /10", core: true, get: function(m){ return m.sx; }, cls: function(v){ return band(v); } },
     { label: "HIA severity /132", get: function(m){ return m.hia; }, cls: function(v){ return band(v / 13.2); } },
-    { label: "Sleep (hours)", core: true, get: function(m){ return m.sleep; }, fmt: function(v){ return v <= 4 ? "≤4" : v >= 9 ? "9+" : String(v); }, cls: function(v){ return v >= 7 ? "g" : v >= 6 ? "w" : "d"; } },
+    { label: "Sleep score /100", core: true, get: function(m){ return m.sleep; }, cls: function(v){ return v >= 80 ? "g" : v >= 60 ? "w" : "d"; } },
     { label: "Headache peak /10", get: function(m){ return m.headPeak; }, cls: function(v){ return v === 0 ? "g" : v <= 4 ? "w" : "d"; } },
     { label: "Painkiller doses", get: function(m){ return m.pk; }, cls: function(v){ return v === 0 ? "n" : "w"; } },
     { label: "Resting HR (bpm)", get: function(m){ return m.rhr; } },
-    { label: "Overnight HRV (ms)", get: function(m){ return m.hrv; } },
-    { label: "Lightheaded standing", get: function(m){ return m.lh; }, fmt: function(v){ return HC.LIGHTHEAD[v] ? HC.LIGHTHEAD[v].l : String(v); }, cls: function(v){ return v === 0 ? "g" : v === 1 ? "w" : "d"; } },
-    { label: "Fluids (litres)", get: function(m){ return m.fluids; }, fmt: function(v){ return String(rnd(v, 1)); }, cls: function(v){ return v >= 2 ? "g" : v >= 1.5 ? "n" : "w"; } }
+    { label: "Overnight HRV (ms)", get: function(m){ return m.hrv; } }
   ];
   rows.forEach(function(r){
     var any = c.days.some(function(m){ var v = r.get(m); return v !== null && v !== undefined; });
@@ -308,7 +350,12 @@ function page1(R){
   circle(ctx, M + 4, y + 8, 4, C.good); txt(ctx, "tolerated", M + 12, y + 11, { size: 8, color: C.mute });
   circle(ctx, M + 66, y + 8, 4, C.danger); txt(ctx, "flagged", M + 74, y + 11, { size: 8, color: C.mute });
   circle(ctx, M + 118, y + 8, 4, C.faint); txt(ctx, "awaiting next-morning check", M + 126, y + 11, { size: 8, color: C.mute });
-  y += 28;
+  y += 32;
+
+  // resting HR, HRV and sleep score on one graph
+  y = section(ctx, "Resting HR, overnight HRV and sleep score", M, y, CW);
+  var vh = drawVitals(ctx, M, y, CW, 122, c.days);
+  y += vh + 16;
 
   // two columns: symptoms | events & triggers
   var colW = (CW - 24) / 2, xL = M, xR = M + colW + 24, top = y;
@@ -354,7 +401,7 @@ function page1(R){
     });
   }
   y = Math.max(yl + 8, yr + 40) + 14;
-  y = Math.max(y, top + 160) + 8;
+  y = Math.max(y, top + 150) + 6;
 
   // two columns: meds | training snapshot
   var yl2 = section(ctx, "Medicines & supplements", xL, y, colW);
@@ -380,19 +427,19 @@ function page1(R){
   yr2 = wrap(ctx, ceilTxt + " Phase " + R.ps.phase + ", " + R.profile.hrLow + "–" + R.profile.hrHigh + " bpm band. Detail on page 2.", xR, yr2 + 2, colW, 13, { size: 9.5, color: C.mute }, 3);
   y = Math.max(yl2, yr2) + 14;
 
-  // notes
-  if(c.notes.length && y < PH - 190){
+  // notes + questions (questions are reserved space so they are never squeezed out)
+  var nq = Math.min(R.questions.length, 6), qh = nq ? 28 + nq * 18 : 0, reserve = nq ? qh + 12 : 0, limit = PH - 52 - reserve;
+  if(c.notes.length && y < limit - 44){
     y = section(ctx, "From the daily notes", M, y, CW);
     c.notes.slice(-3).forEach(function(n){
-      if(y > PH - 160) return;
+      if(y > limit - 18) return;
       txt(ctx, dayLabel(n.date, { weekday: "short", day: "numeric" }), M, y + 9, { size: 9.5, weight: 700, color: C.accent });
       y = wrap(ctx, n.text, M + 56, y + 9, CW - 56, 12.5, { size: 9.5, color: C.ink }, 2) + 4;
     });
     y += 4;
   }
-  // questions
-  if(R.questions.length && y < PH - 100){
-    var qh = 28 + Math.min(R.questions.length, 6) * 18;
+  if(nq){
+    y = Math.min(y, PH - 52 - qh);
     rrect(ctx, M, y, CW, qh, 10, C.accentSoft);
     txt(ctx, "QUESTIONS FOR THE APPOINTMENT", M + 14, y + 20, { size: 9.5, weight: 700, color: C.deep });
     var qy = y + 40;
@@ -639,12 +686,11 @@ function buildText(R){
   L.push("");
   if(c.sx !== null) L.push("*Symptoms:* avg " + fmt(c.sx, 1) + "/10" + dtxt(c.sx, p.sx, 1, "low") + (c.hia !== null ? " · HIA severity avg " + fmt(c.hia, 0) + "/132" + dtxt(c.hia, p.hia, 0, "low") : ""));
   else if(c.hia !== null) L.push("*Symptoms:* HIA severity avg " + fmt(c.hia, 0) + "/132" + dtxt(c.hia, p.hia, 0, "low"));
-  if(c.sleep !== null) L.push("*Sleep:* avg " + fmt(c.sleep, 1) + " h" + dtxt(c.sleep, p.sleep, 1, "high") + (c.rest !== null ? ", rested " + fmt(c.rest, 1) + "/5" : ""));
+  if(c.sleep !== null) L.push("*Sleep:* Garmin score avg " + fmt(c.sleep, 0) + "/100" + dtxt(c.sleep, p.sleep, 0, "high"));
   if(c.headLogged) L.push("*Headache:* " + c.headDays + "/7 days, worst " + c.headMax + "/10 · painkillers on " + c.pkDays + " day" + (c.pkDays === 1 ? "" : "s") + " (" + c.pkDoses + " dose" + (c.pkDoses === 1 ? "" : "s") + ")");
   var auto = [];
   if(c.rhr !== null) auto.push("resting HR " + fmt(c.rhr, 0) + " bpm" + dtxt(c.rhr, p.rhr, 0, "low"));
   if(c.hrv !== null) auto.push("overnight HRV " + fmt(c.hrv, 0) + " ms" + dtxt(c.hrv, p.hrv, 0, "high"));
-  if(c.days.some(function(m){ return isNum(m.lh); })) auto.push("lightheaded on standing " + c.lhDays + " day" + (c.lhDays === 1 ? "" : "s"));
   if(auto.length) L.push("*Autonomic:* " + auto.join(" · "));
   if(c.sessions.length) L.push("*Training:* " + c.sessions.length + " session" + (c.sessions.length === 1 ? "" : "s") + " — " + c.nTol + " tolerated, " + c.nFlag + " flagged" + (c.nPend ? ", " + c.nPend + " awaiting next-morning check" : "") + (c.peakMax !== null ? " · top cardio HR " + c.peakMax + " (ceiling " + R.profile.hrHigh + ")" : ""));
   else L.push("*Training:* no sessions logged");
@@ -754,6 +800,20 @@ function openText(R){
 }
 
 /* ---------------- wiring ---------------- */
+function renderVitalsCard(){
+  var box = $("vitalsChartCard");
+  if(!box) return;
+  box.innerHTML = "";
+  box.appendChild(el("div", { class: "section-title", style: "margin-bottom:10px;", text: "Resting HR, HRV & sleep score — last 7 days" }));
+  var S = summarize(keysEnding(HC.todayKey()));
+  var cv = document.createElement("canvas"), W = 340, Hh = 190;
+  cv.width = W * SCALE; cv.height = Hh * SCALE; cv.style.cssText = "width:100%; height:auto; display:block;";
+  var ctx = cv.getContext("2d"); ctx.scale(SCALE, SCALE); ctx.textBaseline = "alphabetic";
+  drawVitals(ctx, 4, 4, W - 8, Hh - 8, S.days);
+  box.appendChild(cv);
+  box.appendChild(el("p", { class: "small", style: "margin-top:6px;", text: "All three share one axis. Enter them each morning from the Garmin app." }));
+}
+
 HC.buildWeekReport = buildReport;
 HC.weekReportText = function(end){ return buildText(buildReport(end || HC.todayKey())); };
 HC.drawReportPages = function(end){ var R = buildReport(end || HC.todayKey()); return [page1(R), page2(R)]; };
@@ -761,7 +821,7 @@ HC.reportPdf = function(end){
   var cvs = HC.drawReportPages(end);
   return Promise.all(cvs.map(canvasJpeg)).then(makePdf);
 };
-HC.on.render.push(renderCard);
-HC.on.refresh.push(renderCard);
-HC.on.show.history = (HC.on.show.history || []).concat([renderCard]);
+HC.on.render.push(function(){ renderCard(); renderVitalsCard(); });
+HC.on.refresh.push(function(){ renderCard(); renderVitalsCard(); });
+HC.on.show.history = (HC.on.show.history || []).concat([function(){ renderCard(); renderVitalsCard(); }]);
 })();

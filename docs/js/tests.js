@@ -5,8 +5,57 @@
 var HC = window.HC, el = HC.el, $ = HC.$;
 
 var TEST_EVERY_DAYS = 7;
-// Ruler-drop: distance fallen d (cm) -> reaction time t = sqrt(2d/g).
-HC.rtMs = function(cm){ return (typeof cm === "number" && cm > 0) ? Math.round(Math.sqrt(2 * cm / 981) * 1000) : null; };
+// Reaction time is stored in milliseconds (from the colour-change tap test below).
+HC.rtMs = function(v){ return (typeof v === "number" && v > 0) ? Math.round(v) : null; };
+
+/* Colour-change tap test: the screen is red, turns green after a random wait, tap as soon as
+   it does. 5 taps per thumb, the median is kept. Tapping early restarts that attempt. */
+var RT_TRIALS = 5;
+function runReactionTest(hand, done){
+  var times = [], timer = null, greenAt = 0, state = "idle", msg;
+  var ov = el("div", { id: "rtOverlay" });
+  var top = el("div", { class: "rt-top" }, [el("b", { text: hand + " thumb" }), el("button", { class: "btn btn-ghost btn-sm", type: "button", text: "Cancel", onclick: close })]);
+  var pad = el("div", { class: "rt-pad" });
+  var big = el("div", { class: "rt-big" }), small = el("div", { class: "rt-small" });
+  pad.appendChild(big); pad.appendChild(small);
+  ov.appendChild(top); ov.appendChild(pad);
+  document.body.appendChild(ov);
+  function close(){ clearTimeout(timer); ov.remove(); }
+  function paint(cls, b, sm){ pad.className = "rt-pad " + cls; big.textContent = b; small.textContent = sm || ""; }
+  function ready(){ state = "idle"; paint("idle", times.length ? times[times.length - 1] + " ms" : "Tap to start", times.length ? "Tap for attempt " + (times.length + 1) + " of " + RT_TRIALS : "Hold the phone in your " + hand.toLowerCase() + " hand and tap with that thumb. " + RT_TRIALS + " attempts."); }
+  function wait(){
+    state = "wait"; paint("wait", "Wait…", "Tap only when the screen turns green");
+    timer = setTimeout(function(){
+      state = "go"; pad.className = "rt-pad go"; big.textContent = "TAP!"; small.textContent = "";
+      requestAnimationFrame(function(){ greenAt = performance.now(); });
+    }, 1500 + Math.random() * 3000);
+  }
+  function finish(){
+    state = "done";
+    var sorted = times.slice().sort(function(a, b){ return a - b; }), med = sorted[Math.floor(sorted.length / 2)];
+    pad.className = "rt-pad idle"; pad.innerHTML = "";
+    pad.appendChild(el("div", { class: "rt-big", text: med + " ms" }));
+    pad.appendChild(el("div", { class: "rt-small", text: "Median of " + times.join(", ") + " ms" }));
+    pad.appendChild(el("div", { class: "rt-actions" }, [
+      el("button", { class: "btn btn-ghost", type: "button", text: "Redo", onclick: function(){ times = []; pad.innerHTML = ""; pad.appendChild(big); pad.appendChild(small); ready(); } }),
+      el("button", { class: "btn btn-primary", type: "button", text: "Use " + med + " ms", onclick: function(){ close(); done(med); } })
+    ]));
+  }
+  pad.addEventListener("pointerdown", function(e){
+    if(e.target.closest && e.target.closest(".rt-actions")) return;
+    e.preventDefault();
+    if(state === "idle") wait();
+    else if(state === "wait"){ clearTimeout(timer); state = "early"; paint("early", "Too early", "Wait for green — tap to retry"); }
+    else if(state === "early") wait();
+    else if(state === "go"){
+      var ms = Math.round(performance.now() - greenAt);
+      times.push(ms);
+      if(times.length >= RT_TRIALS) finish(); else ready();
+    }
+  });
+  ready();
+}
+HC.runReactionTest = runReactionTest;
 
 HC.sortedTests = function(){ return HC.state.tests.slice().sort(function(a, b){ return a.date < b.date ? 1 : -1; }); };
 HC.testsDue = function(){
@@ -45,24 +94,19 @@ function openForm(existing){
   var t = existing || {};
   var date = el("input", { type: "date", value: t.date || HC.todayKey() });
   var npc = num(t.npc, "cm", 0, 40);
-  var rtL = num(t.rtL, "cm", 0, 60), rtR = num(t.rtR, "cm", 0, 60);
+  var rtL = num(t.rtL, "ms", 50, 2000), rtR = num(t.rtR, "ms", 50, 2000);
+  function rtField(label, inp, hand){
+    return field(label, el("div", { style: "display:flex; gap:8px;" }, [inp, el("button", { class: "btn btn-ghost btn-sm", type: "button", style: "white-space:nowrap;", text: "Run test", onclick: function(){ runReactionTest(hand, function(ms){ inp.value = String(ms); }); } })]));
+  }
   var hl = num(t.hrLie, "bpm", 30, 220), h1 = num(t.hrS1, "bpm", 30, 240), h3 = num(t.hrS3, "bpm", 30, 240);
   var note = el("input", { type: "text", placeholder: "Optional", value: t.note || "" });
-  var base = "Someone holds a ruler; catch it as it drops. Average of 3 drops, in cm.";
-  var rtHint = el("p", { class: "hint", text: base });
-  function sync(){
-    var a = HC.rtMs(val(rtL)), b = HC.rtMs(val(rtR));
-    rtHint.textContent = (a || b) ? "≈ " + (a ? a + " ms left" : "") + (a && b ? ", " : "") + (b ? b + " ms right" : "") : base;
-  }
-  rtL.addEventListener("input", sync); rtR.addEventListener("input", sync); sync();
   HC.openModal([
     el("h3", { text: existing ? "Edit test results" : "Log this week's tests" }),
     el("div", { class: "stack", style: "gap:0; max-height:58vh; overflow-y:auto; padding-right:2px;" }, [
       field("Date", date),
       field("Near-point of convergence (cm)", npc, "Pen at arm's length, slowly bring it to your nose; stop when it doubles. Measure the distance. Best of 3."),
-      field("Reaction time — left hand (ruler drop, cm)", rtL),
-      field("Reaction time — right hand (ruler drop, cm)", rtR),
-      rtHint,
+      rtField("Reaction time — left thumb (ms)", rtL, "Left"),
+      rtField("Reaction time — right thumb (ms)", rtR, "Right"),
       field("Lying heart rate (bpm)", hl, "After 5 minutes flat on your back."),
       field("Standing heart rate at 1 min (bpm)", h1),
       field("Standing heart rate at 3 min (bpm)", h3),

@@ -30,7 +30,7 @@ function renderAuto(){
   var box = $("autoCard"), a = HC.today().auto;
   box.innerHTML = "";
   box.appendChild(el("div", { class: "section-title", text: "Morning autonomic check" }));
-  box.appendChild(el("p", { class: "small", style: "margin:4px 2px 0;", text: "Quick numbers your doctor and physio can trend. Resting HR and HRV are on your Garmin app." }));
+  box.appendChild(el("p", { class: "small", style: "margin:4px 2px 0;", text: "Both numbers are in your Garmin app. They're graphed in your weekly report." }));
   function save(k, v){ var d = HC.today(); if(v === null || v === undefined) delete d.auto[k]; else d.auto[k] = v; HC.save(); }
   var row = el("div", { class: "two-col" }, [
     el("div", { class: "field" }, [el("label", { text: "Resting HR (bpm)" }), numInput(a.rhr, { min: 30, max: 160, ph: "e.g. 62" }, function(v){ save("rhr", v); })]),
@@ -38,9 +38,6 @@ function renderAuto(){
   ]);
   box.appendChild(el("div", { style: "margin-top:12px;" }, [row]));
   box.appendChild(group("HRV status (Garmin)", chipRow(HC.HRV_STATUS.map(function(s){ return { v: s, l: s }; }), function(v){ return a.hrvStatus === v; }, function(v){ save("hrvStatus", a.hrvStatus === v ? null : v); renderAuto(); })));
-  box.appendChild(group("Lightheaded on standing up?", chipRow(HC.LIGHTHEAD, function(v){ return a.lightheaded === v; }, function(v){ save("lightheaded", v); renderAuto(); })));
-  var fl = el("div", { class: "field", style: "margin-top:12px;" }, [el("label", { text: "Fluids today (litres)" }), numInput(a.fluids, { min: 0, max: 8, step: "0.1", decimal: true, ph: "e.g. 2.5" }, function(v){ save("fluids", v); })]);
-  box.appendChild(fl);
 }
 
 /* ---------------- headache + painkillers ---------------- */

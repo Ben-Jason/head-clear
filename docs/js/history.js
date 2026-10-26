@@ -106,23 +106,23 @@ function renderCardioChart(){
   ]));
 }
 
-/* ---------------- sleep chart ---------------- */
+/* ---------------- sleep chart (Garmin sleep score) ---------------- */
 function renderSleepChart(){
-  var box = $("sleepChartCard"), t = HC.todayKey(), cols = [], sum = 0, n = 0;
+  var box = $("sleepChartCard"), t = HC.todayKey(), sum = 0, n = 0;
   box.innerHTML = "";
-  box.appendChild(el("div", { class: "section-title", style: "margin-bottom:10px;", text: "Sleep — last 14 nights" }));
+  box.appendChild(el("div", { class: "section-title", style: "margin-bottom:10px;", text: "Sleep score — last 14 nights" }));
   var chart = el("div", { class: "chart" });
   for(var i = 13; i >= 0; i--){
-    var k = HC.addDays(t, -i), d = HC.peekDay(k), h = d && typeof d.sleep.hours === "number" ? d.sleep.hours : null;
-    if(h !== null){ sum += h; n++; }
+    var k = HC.addDays(t, -i), d = HC.peekDay(k), v = d && typeof d.sleep.score === "number" ? d.sleep.score : null;
+    if(v !== null){ sum += v; n++; }
     chart.appendChild(el("div", { class: "col" }, [
-      el("div", { class: "val", text: h === null ? "" : String(h) }),
-      el("div", { class: "barwrap" }, [el("div", { class: "bar" + (h === null ? " pend" : ""), style: "height:" + (h === null ? 3 : Math.max(4, h / 10 * 100)) + "%;" + (h === null ? "opacity:.35;" : "") })]),
+      el("div", { class: "val", text: v === null ? "" : String(v) }),
+      el("div", { class: "barwrap" }, [el("div", { class: "bar" + (v === null ? " pend" : ""), style: "height:" + (v === null ? 3 : Math.max(4, v)) + "%;" + (v === null ? "opacity:.35;" : "") })]),
       el("div", { class: "lab", text: String(HC.parseKey(k).getDate()) })
     ]));
   }
   box.appendChild(chart);
-  box.appendChild(el("p", { class: "small", style: "margin-top:10px;", text: n ? "Average " + (sum / n).toFixed(1) + " h over " + n + " logged night" + (n === 1 ? "" : "s") + "." : "Log last night's sleep on Today each morning." }));
+  box.appendChild(el("p", { class: "small", style: "margin-top:10px;", text: n ? "Average " + Math.round(sum / n) + "/100 over " + n + " logged night" + (n === 1 ? "" : "s") + "." : "Log last night's Garmin sleep score on Today each morning." }));
 }
 
 /* ---------------- day list + detail ---------------- */
@@ -165,9 +165,8 @@ function showDayDetail(key){
   }
   if(day.sessions.length) body.appendChild(group("Sessions", day.sessions.map(sessionLine)));
   var sl = day.sleep, sleepBits = [];
+  if(typeof sl.score === "number") sleepBits.push("score " + sl.score + "/100");
   if(typeof sl.hours === "number") sleepBits.push(sl.hours + " h");
-  if(sl.latency) sleepBits.push("asleep in " + HC.SLEEP_LATENCY.filter(function(o){ return o.v === sl.latency; }).map(function(o){ return o.l; })[0]);
-  if(sl.quality) sleepBits.push("rested " + sl.quality + "/5");
   if(sleepBits.length) body.appendChild(group("Sleep", [sleepBits.join(" · ")]));
   var medsTaken = HC.state.meds.filter(function(m){ return day.meds[m.id]; }).map(function(m){ return "✓ " + m.name; });
   if(medsTaken.length) body.appendChild(group("Meds & supplements", medsTaken));
@@ -210,7 +209,7 @@ function buildSummary(){
     if(HC.hiaTouched(d)) lines.push("  Symptoms (HIA 0–6 x 22): severity " + HC.hiaSeverity(d) + "/" + HC.HIA_MAX + ", " + HC.hiaCount(d) + " symptoms");
     else if(d.symptomScore !== null && d.symptomScore !== undefined) lines.push("  Symptoms: " + d.symptomScore + "/10");
     d.sessions.forEach(function(s){ lines.push("  " + sessionLine(s)); });
-    if(typeof d.sleep.hours === "number") lines.push("  Sleep: " + d.sleep.hours + " h" + (d.sleep.quality ? ", rested " + d.sleep.quality + "/5" : ""));
+    if(typeof d.sleep.score === "number") lines.push("  Sleep score: " + d.sleep.score + "/100");
     var meds = HC.state.meds.filter(function(m){ return d.meds[m.id]; }).map(function(m){ return m.name; });
     if(meds.length) lines.push("  Meds: " + meds.join(", "));
     if(d.journal) lines.push("  Notes: " + d.journal.replace(/\s+/g, " ").trim());
