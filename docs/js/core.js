@@ -262,7 +262,7 @@ HC.defaultState = function(){
   return {
     v: 2, createdAt: new Date().toISOString(), days: {},
     ladder: { started: false, currentStep: 0, stepStartedAt: null, history: [] },
-    hidden: { rhythm: {}, standing: {} }, featureNotes: "", feedback: { sentAt: null, sentText: "" },
+    hidden: { rhythm: {}, standing: {} }, featureNotes: "", feedback: { key: "", sent: [] },
     profile: defaultProfile(), meds: defaultMeds(), bctt: [], bcttNext: null, clearance: {}, ui: { avoidOpen: false },
     tests: [], questions: [],
     custom: { items: {}, added: [], removedLabels: {} }
@@ -283,7 +283,10 @@ function load(){
       Object.assign(d.hidden.standing, p.hidden.standing || {});
     }
     d.featureNotes = typeof p.featureNotes === "string" ? p.featureNotes : "";
-    d.feedback = p.feedback && typeof p.feedback === "object" ? Object.assign({ sentAt: null, sentText: "" }, p.feedback) : d.feedback;
+    if(p.feedback && typeof p.feedback === "object"){
+      d.feedback.key = typeof p.feedback.key === "string" ? p.feedback.key : "";
+      d.feedback.sent = Array.isArray(p.feedback.sent) ? p.feedback.sent : [];
+    }
     d.profile = Object.assign(defaultProfile(), p.profile || {});
     d.meds = Array.isArray(p.meds) ? p.meds : defaultMeds();
     d.bctt = Array.isArray(p.bctt) ? p.bctt : [];

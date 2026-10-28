@@ -70,6 +70,19 @@ async function handleFeedback(request, env, url) {
     await env.SUBS.put(FEEDBACK_PREFIX + id, JSON.stringify(item), { expirationTtl: FEEDBACK_TTL });
     return json({ ok: true, id });
   }
+  if (path === "/feedback/mine" && request.method === "GET") {
+    // The phone may see the status and one-line result of its own notes, nothing else.
+    if (!safeEqual(request.headers.get("X-Feedback-Key"), env.FEEDBACK_KEY)) return json({ error: "unauthorized" }, 401);
+    const list = await env.SUBS.list({ prefix: FEEDBACK_PREFIX, limit: FEEDBACK_MAX_ITEMS });
+    const items = [];
+    for (const k of list.keys) {
+      const raw = await env.SUBS.get(k.name);
+      if (!raw) continue;
+      const it = JSON.parse(raw);
+      items.push({ id: it.id, status: it.status, result: it.result || "", updatedAt: it.updatedAt || it.createdAt });
+    }
+    return json({ items });
+  }
   if (!safeEqual(request.headers.get("X-Inbox-Key"), env.INBOX_KEY)) return json({ error: "unauthorized" }, 401);
   if (path === "/feedback" && request.method === "GET") {
     const want = url.searchParams.get("status");
