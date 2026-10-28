@@ -172,6 +172,7 @@ HC.DEFAULT_PLAN = {
   profile: null,
   meds: null,
   reportContext: "",
+  feedbackKey: "",
   painkillers: ["Paracetamol", "Ibuprofen", "Codeine-containing", "Other"],
   triggerTags: ["Screens", "Noise", "Busy places", "Stress", "Poor sleep", "Exercise", "Travel / driving", "Skipped meal", "Heat", "Caffeine"]
 };
@@ -261,7 +262,7 @@ HC.defaultState = function(){
   return {
     v: 2, createdAt: new Date().toISOString(), days: {},
     ladder: { started: false, currentStep: 0, stepStartedAt: null, history: [] },
-    hidden: { rhythm: {}, standing: {} }, featureNotes: "",
+    hidden: { rhythm: {}, standing: {} }, featureNotes: "", feedback: { sentAt: null, sentText: "" },
     profile: defaultProfile(), meds: defaultMeds(), bctt: [], bcttNext: null, clearance: {}, ui: { avoidOpen: false },
     tests: [], questions: [],
     custom: { items: {}, added: [], removedLabels: {} }
@@ -282,6 +283,7 @@ function load(){
       Object.assign(d.hidden.standing, p.hidden.standing || {});
     }
     d.featureNotes = typeof p.featureNotes === "string" ? p.featureNotes : "";
+    d.feedback = p.feedback && typeof p.feedback === "object" ? Object.assign({ sentAt: null, sentText: "" }, p.feedback) : d.feedback;
     d.profile = Object.assign(defaultProfile(), p.profile || {});
     d.meds = Array.isArray(p.meds) ? p.meds : defaultMeds();
     d.bctt = Array.isArray(p.bctt) ? p.bctt : [];

@@ -171,8 +171,36 @@ var notesEl = $("featureNotesInput"), notesTimer;
 notesEl.value = HC.state.featureNotes || "";
 notesEl.addEventListener("input", function(){
   clearTimeout(notesTimer);
-  notesTimer = setTimeout(function(){ HC.state.featureNotes = notesEl.value; HC.save(); }, 400);
+  notesTimer = setTimeout(function(){ HC.state.featureNotes = notesEl.value; HC.save(); renderFeedback(); }, 400);
 });
+
+// "Send to Claude": posts the note to this app's own Worker inbox, where a routine on the
+// Mac picks it up, drafts the change on a separate branch and waits for approval.
+function appVersion(){
+  var s = [].filter.call(document.scripts, function(x){ return /js\/core\.js/.test(x.src); })[0];
+  var m = s && /[?&]v=([^&]+)/.exec(s.src);
+  return m ? m[1] : "";
+}
+function renderFeedback(){
+  var box = $("feedbackActions"), fb = HC.state.feedback, text = (notesEl.value || "").trim();
+  box.innerHTML = "";
+  var key = HC.plan.feedbackKey;
+  var already = !!text && fb.sentText === text;
+  var btn = el("button", { class: "btn btn-primary", type: "button", text: already ? "Sent ✓" : "Send to Claude", disabled: !text || !key || already });
+  btn.addEventListener("click", function(){
+    btn.disabled = true; btn.textContent = "Sending…";
+    fetch(HC.WORKER_URL + "/feedback", { method: "POST", headers: { "Content-Type": "application/json", "X-Feedback-Key": key },
+      body: JSON.stringify({ text: text, meta: { v: appVersion(), standalone: window.navigator.standalone === true } }) })
+      .then(function(r){ if(!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then(function(){ fb.sentAt = new Date().toISOString(); fb.sentText = text; HC.save(); HC.toast("Sent. Claude will draft it for your review."); renderFeedback(); })
+      .catch(function(e){ HC.toast(e && e.message === "401" ? "The feedback key was rejected — re-paste your plan file." : "Couldn't send — check your connection and try again."); renderFeedback(); });
+  });
+  box.appendChild(btn);
+  var hint = !key ? "Sending is switched on by the feedback key in your plan file (Info → My plan file)."
+    : fb.sentAt ? "Last sent " + new Date(fb.sentAt).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + ". Your note stays here until you clear it." : "Your note stays here until you clear it.";
+  box.appendChild(el("p", { class: "small", style: "margin-top:8px;", text: hint }));
+}
+HC.on.render.push(renderFeedback);
 $("resetDataBtn").addEventListener("click", function(){
   HC.confirm({
     title: "Erase all data?",
