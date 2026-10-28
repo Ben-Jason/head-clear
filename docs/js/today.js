@@ -192,6 +192,42 @@ function checkRow(o){
 var editMode = false;
 function redrawLists(){ renderRhythm(); renderStanding(); }
 
+/* ---------------- yesterday view: tick the checklist, background habits and meds for yesterday ---------------- */
+var viewing = null; // yesterday's date key while the "Yesterday" tab is selected
+var TICK_MAPS = ["wake", "midday", "afternoon", "evening", "bed", "standing", "meds"];
+function viewKey(){ var y = HC.addDays(HC.todayKey(), -1); if(viewing && viewing !== y) viewing = null; return viewing; }
+function emptyShape(){ var o = {}; TICK_MAPS.forEach(function(k){ o[k] = {}; }); return o; }
+function readDay(){ var k = viewKey(); return k ? (HC.peekDay(k) || emptyShape()) : HC.today(); }
+function writeDay(){ var k = viewKey(); return k ? HC.getDay(k) : HC.today(); } // only creates yesterday's record when something is ticked
+function yesterdayEmpty(){
+  var d = HC.peekDay(HC.addDays(HC.todayKey(), -1));
+  if(!d) return true;
+  return !TICK_MAPS.some(function(k){ return Object.keys(d[k]).some(function(id){ return d[k][id] === true; }); });
+}
+function redrawAll(){ renderRhythm(); renderStanding(); renderMeds(); }
+function renderDayToggle(){
+  var y = HC.addDays(HC.todayKey(), -1), on = viewKey();
+  var box = $("dayToggle"), banner = $("yBanner");
+  box.innerHTML = "";
+  var wrap = el("div", { class: "seg" });
+  [["Yesterday", y], ["Today", null]].forEach(function(o){
+    wrap.appendChild(el("button", { type: "button", class: (on || null) === o[1] ? "on" : "", text: o[0], onclick: function(){ viewing = o[1]; redrawAll(); } }));
+  });
+  box.appendChild(wrap);
+  $("rhythmTitle").textContent = on ? "Yesterday's rhythm" : "Today's rhythm";
+  $("standingTitle").textContent = on ? "Running in the background · yesterday" : "Running in the background";
+  banner.innerHTML = "";
+  if(on){
+    banner.hidden = false;
+    banner.appendChild(el("span", { text: "Editing " + HC.fmtDate(on, { weekday: "long", day: "numeric", month: "short" }) + ". Your ticks here count for that day." }));
+  } else if(yesterdayEmpty() && HC.state.ui.yDismissed !== HC.todayKey()){
+    banner.hidden = false;
+    banner.appendChild(el("span", { text: "Nothing was ticked yesterday." }));
+    banner.appendChild(el("button", { type: "button", class: "link-btn", text: "Check in for yesterday", onclick: function(){ viewing = y; redrawAll(); } }));
+    banner.appendChild(el("button", { type: "button", class: "link-btn", style: "color:var(--ink-faint);", text: "Dismiss", onclick: function(){ HC.state.ui.yDismissed = HC.todayKey(); HC.save(); renderDayToggle(); } }));
+  } else banner.hidden = true;
+}
+
 function isHidden(blockKey, id){ return blockKey === "standing" ? HC.isHiddenStanding(id) : HC.isHiddenRhythm(blockKey, id); }
 function setHidden(blockKey, id, v){
   if(blockKey === "standing") HC.state.hidden.standing[id] = v; else HC.state.hidden.rhythm[blockKey + ":" + id] = v;
@@ -263,7 +299,7 @@ function itemRow(it, blockKey, doneMap){
     label: HC.fmt(it.label), why: HC.fmt(it.why || ""),
     onClick: function(){
       if(editMode){ editItemModal(it, blockKey); return; }
-      var d = HC.today(), m = blockKey === "standing" ? d.standing : d[blockKey];
+      var d = writeDay(), m = blockKey === "standing" ? d.standing : d[blockKey];
       m[it.id] = !m[it.id];
       HC.save(); redrawLists();
     }
@@ -274,7 +310,8 @@ function addButton(blockKey, blockName){
 }
 
 function renderRhythm(){
-  var root = $("rhythmBlocks"), day = HC.today();
+  var root = $("rhythmBlocks"), day = readDay();
+  renderDayToggle();
   root.innerHTML = "";
   $("editChecklistBtn").textContent = editMode ? "Done" : "Edit";
   $("editHint").hidden = !editMode;
@@ -301,7 +338,7 @@ function renderRhythm(){
 $("editChecklistBtn").addEventListener("click", function(){ editMode = !editMode; redrawLists(); });
 
 function renderStanding(){
-  var root = $("standingList"), day = HC.today();
+  var root = $("standingList"), day = readDay();
   root.innerHTML = "";
   HC.standingItems().forEach(function(it){
     if(!editMode && HC.isHiddenStanding(it.id)) return;
@@ -312,10 +349,10 @@ function renderStanding(){
 
 /* ---------------- meds & supplements (ticks; the list itself is edited in Info) ---------------- */
 function renderMeds(){
-  var box = $("medsCard"), day = HC.today(), meds = HC.state.meds;
+  var box = $("medsCard"), day = readDay(), meds = HC.state.meds;
   box.innerHTML = "";
   box.appendChild(el("div", { class: "block-head", style: "margin-bottom:8px;" }, [
-    el("div", { class: "section-title", style: "margin:0;", text: "Meds & supplements" }),
+    el("div", { class: "section-title", style: "margin:0;", text: viewKey() ? "Meds & supplements · yesterday" : "Meds & supplements" }),
     el("button", { class: "link-btn", type: "button", text: "Edit list", onclick: function(){ HC.switchTab("info"); var m = $("medsEditorCard"); if(m) m.scrollIntoView({ block: "start" }); } })
   ]));
   if(!meds.length){
@@ -327,7 +364,7 @@ function renderMeds(){
     list.appendChild(checkRow({
       done: !!day.meds[m.id], label: m.name || "Unnamed",
       why: (m.dose ? m.dose : "dose not set — add it under Info") + " · " + (WHEN[m.when] || "Any time"),
-      onClick: function(){ var d = HC.today(); d.meds[m.id] = !d.meds[m.id]; HC.save(); renderMeds(); }
+      onClick: function(){ var d = writeDay(); d.meds[m.id] = !d.meds[m.id]; HC.save(); renderMeds(); }
     }));
   });
   box.appendChild(list);
@@ -346,7 +383,7 @@ function renderJournal(){ if(document.activeElement !== journalEl) journalEl.val
 $("sosBtn").addEventListener("click", function(){ HC.switchTab("info"); var f = $("redFlagList"); if(f) f.scrollIntoView({ block: "start" }); });
 
 /* ---------------- wiring ---------------- */
-HC.resetTodayUI = function(){ hiaExpanded = false; editMode = false; journalEl.value = ""; };
+HC.resetTodayUI = function(){ hiaExpanded = false; editMode = false; viewing = null; journalEl.value = ""; };
 HC.on.render.push(function(){
   renderHero(); renderStepUp(); renderMorning(); renderAvoid(); renderHIA(); renderSparkline();
   renderSleep(); renderRhythm(); renderMeds(); renderStanding(); renderJournal();

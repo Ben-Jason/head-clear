@@ -522,3 +522,6 @@ button.test-row .k{flex-shrink:0;}
 .fb-chip.warn{background:var(--warn-soft); color:var(--warn-ink);}
 .fb-result{font-size:12.5px; color:var(--ink-soft); line-height:1.55; margin-top:6px;}
 .fb-actions{display:flex; gap:14px; margin-top:6px;}
+
+.y-banner{display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; margin:6px 0 10px; padding:9px 12px; border-radius:11px; background:var(--warn-soft); color:var(--warn-ink); font-size:13px;}
+.y-banner .link-btn{color:var(--warn-ink);}

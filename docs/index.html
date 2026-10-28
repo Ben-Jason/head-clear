@@ -72,9 +72,11 @@
 
       <div class="card">
         <div class="block-head" style="margin-bottom:2px;">
-          <div class="section-title" style="margin:0;">Today's rhythm</div>
+          <div class="section-title" id="rhythmTitle" style="margin:0;">Today's rhythm</div>
           <button class="btn btn-ghost btn-sm" id="editChecklistBtn" type="button">Edit</button>
         </div>
+        <div id="dayToggle" style="margin:10px 0 4px;"></div>
+        <div id="yBanner" class="y-banner" hidden></div>
         <p class="small" id="editHint" hidden style="margin:2px 2px 10px;">Tap an item to reword, hide or remove it. Use “+ Add” under a section to add your own tick-box.</p>
         <div id="rhythmBlocks" class="stack"></div>
       </div>
@@ -84,7 +86,7 @@
       <div class="card" id="eventsCard"></div>
 
       <div class="card">
-        <div class="section-title" style="margin-bottom:12px;">Running in the background</div>
+        <div class="section-title" id="standingTitle" style="margin-bottom:12px;">Running in the background</div>
         <div id="standingList" class="check-list"></div>
       </div>
 
