@@ -159,21 +159,30 @@ function sleepAvg(){
   }
   return n ? (sum / n) : null;
 }
+var sleepOpen = false; // editing an already-logged score; collapses again on the next visit to Today
 function renderSleep(){
-  var box = $("sleepCard"), sl = HC.today().sleep;
+  var box = $("sleepCard"), sl = HC.today().sleep, logged = typeof sl.score === "number", avg = sleepAvg();
   box.innerHTML = "";
-  box.appendChild(el("div", { class: "section-title", text: "Last night's sleep" }));
+  var btn = logged ? el("button", { type: "button", class: "btn btn-ghost btn-sm", text: sleepOpen ? "Done" : "Edit", onclick: function(){ sleepOpen = !sleepOpen; renderSleep(); } }) : null;
+  box.appendChild(el("div", { class: "block-head", style: "margin-bottom:2px;" }, [el("div", { class: "section-title", style: "margin:0;", text: "Last night's sleep" }), btn]));
+  if(logged && !sleepOpen){
+    box.appendChild(el("div", { class: "log-summary", style: "margin-top:8px;" }, [
+      el("div", { class: "stat-tile" }, [el("b", { text: sl.score + "/100" }), el("span", { text: "Saved for last night" })]),
+      el("div", { class: "stat-tile" }, [el("b", { text: avg === null ? "—" : Math.round(avg) + "/100" }), el("span", { text: "7-night average" })])
+    ]));
+    return;
+  }
   box.appendChild(el("p", { class: "small", style: "margin:4px 2px 0;", text: "Copy the score from the Garmin app: Sleep → last night's score out of 100." }));
-  var inp = el("input", { type: "number", inputmode: "numeric", min: 0, max: 100, step: "1", placeholder: "e.g. 78", value: typeof sl.score === "number" ? String(sl.score) : "" });
+  var inp = el("input", { type: "number", inputmode: "numeric", min: 0, max: 100, step: "1", placeholder: "e.g. 78", value: logged ? String(sl.score) : "" });
   inp.addEventListener("change", function(){
     var v = inp.value === "" ? null : Math.round(+inp.value);
     if(v !== null && (isNaN(v) || v < 0 || v > 100)){ inp.classList.add("err"); return; }
     inp.classList.remove("err");
     var d = HC.today(); if(v === null) delete d.sleep.score; else d.sleep.score = v;
+    sleepOpen = false;
     HC.save(); renderSleep();
   });
   box.appendChild(el("div", { class: "field", style: "margin-top:12px;" }, [el("label", { text: "Garmin sleep score (0–100)" }), inp]));
-  var avg = sleepAvg();
   box.appendChild(el("p", { class: "small", style: "margin-top:12px;", text: avg === null ? "Log it each morning to see your 7-night average." : "7-night average: " + Math.round(avg) + "/100." }));
 }
 
@@ -383,11 +392,11 @@ function renderJournal(){ if(document.activeElement !== journalEl) journalEl.val
 $("sosBtn").addEventListener("click", function(){ HC.switchTab("info"); var f = $("redFlagList"); if(f) f.scrollIntoView({ block: "start" }); });
 
 /* ---------------- wiring ---------------- */
-HC.resetTodayUI = function(){ hiaExpanded = false; editMode = false; viewing = null; journalEl.value = ""; };
+HC.resetTodayUI = function(){ hiaExpanded = false; sleepOpen = false; editMode = false; viewing = null; journalEl.value = ""; };
 HC.on.render.push(function(){
   renderHero(); renderStepUp(); renderMorning(); renderAvoid(); renderHIA(); renderSparkline();
   renderSleep(); renderRhythm(); renderMeds(); renderStanding(); renderJournal();
 });
 HC.on.refresh.push(function(){ renderHero(); renderStepUp(); renderMorning(); renderAvoid(); renderSparkline(); });
-HC.on.show.today = [function(){ renderHero(); renderStepUp(); renderMorning(); renderAvoid(); renderRhythm(); renderMeds(); renderSleep(); renderHIASummary(); }];
+HC.on.show.today = [function(){ sleepOpen = false; renderHero(); renderStepUp(); renderMorning(); renderAvoid(); renderRhythm(); renderMeds(); renderSleep(); renderHIASummary(); }];
 })();

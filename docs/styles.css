@@ -220,9 +220,9 @@
   .scale-legend{display:flex; justify-content:space-between; font-size:10.5px; color:var(--ink-faint); margin-top:6px; padding:0 2px;}
 
   /* HIA-style symptom evaluation */
-  .hia-summary{display:flex; margin-bottom:4px;}
-  .hia-summary .stat-tile{flex:1; text-align:left; padding:10px 4px; border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
-  .hia-summary .stat-tile:first-child{border-right:1px solid var(--line);}
+  .hia-summary, .log-summary{display:flex; margin-bottom:4px;}
+  .hia-summary .stat-tile, .log-summary .stat-tile{flex:1; text-align:left; padding:10px 4px; border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
+  .hia-summary .stat-tile:first-child, .log-summary .stat-tile:first-child{border-right:1px solid var(--line);}
   .hia-list{display:flex; flex-direction:column; gap:14px; padding-top:12px;}
   .hia-row{display:flex; flex-direction:column; gap:7px;}
   .hia-row-head{display:flex; justify-content:space-between; align-items:baseline; gap:8px;}
