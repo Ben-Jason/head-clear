@@ -81,6 +81,14 @@
     height:100vh; height:100dvh;
     display:flex; flex-direction:column; overflow:hidden;
   }
+  /* Installed (home-screen) mode: iOS can report 100dvh a few px short of
+     the real screen, leaving a strip of page background under the tab bar.
+     Paint the page in the nav's colour and give the shell the page colour,
+     so anything below the shell reads as part of the nav. */
+  @media (display-mode: standalone){
+    html, body{background:var(--surface);}
+    #app{background:var(--bg);}
+  }
 
   /* header */
   header.top{
