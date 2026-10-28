@@ -374,7 +374,10 @@
     font:inherit; font-size:14px; color:var(--ink); width:100%;
   }
   input:focus, select:focus, textarea:focus{outline:2px solid var(--accent); outline-offset:1px;}
-  .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .row2{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px;}
+  /* iOS time/date inputs have a wide intrinsic width; without min-width:0 they push past their grid column and overlap the neighbour */
+  .row2 > *{min-width:0;}
+  input[type=time], input[type=date]{min-width:0; max-width:100%; box-sizing:border-box;}
   .hint{font-size:12px; color:var(--ink-faint); line-height:1.5; margin:0;}
   .hint.warn{color:var(--warn-ink);}
   .hint.bad{color:var(--danger-ink); font-weight:600;}
@@ -466,7 +469,8 @@
   :root[data-theme="dark"] #installBanner, :root[data-theme="dark"] .btn-primary{background:#2a6552;}
 
 /* ---- v4: daily extras, weekly tests, weekly report ---- */
-.two-col{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.two-col{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px;}
+.two-col > *{min-width:0;}
 .pk-list{display:flex; flex-direction:column; gap:6px;}
 .pk-row{display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--line); border-radius:11px; padding:6px 8px 6px 12px;}
 .pk-row.on{border-color:var(--accent); background:var(--accent-soft);}
