@@ -377,7 +377,17 @@
   .row2{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px;}
   /* iOS time/date inputs have a wide intrinsic width; without min-width:0 they push past their grid column and overlap the neighbour */
   .row2 > *{min-width:0;}
-  input[type=time], input[type=date]{min-width:0; max-width:100%; box-sizing:border-box;}
+  /* iOS gives time/date inputs a native width and height that ignore width:100%, so the box spilled under
+     its neighbour and was taller than the number box beside it. Turn off the native sizing and match the
+     other fields; the picker still opens when tapped. */
+  input[type=time], input[type=date]{
+    -webkit-appearance:none; appearance:none; display:block;
+    min-width:0; width:100%; max-width:100%; box-sizing:border-box; overflow:hidden;
+    height:42px; line-height:1.2; text-align:left;
+  }
+  input[type=time]::-webkit-date-and-time-value, input[type=date]::-webkit-date-and-time-value{text-align:left; min-height:1.2em;}
+  input[type=time]::-webkit-datetime-edit, input[type=date]::-webkit-datetime-edit{padding:0;}
+  input[type=number]{min-height:42px;}
   .hint{font-size:12px; color:var(--ink-faint); line-height:1.5; margin:0;}
   .hint.warn{color:var(--warn-ink);}
   .hint.bad{color:var(--danger-ink); font-weight:600;}
