@@ -583,13 +583,13 @@ function page3(R){
   c.days.forEach(function(m, i){ txt(ctx, HC.fmtDate(m.key, { weekday: "narrow" }), xL + LWr + i * sq + sq / 2, yl + 2, { size: 8, weight: 700, color: C.mute, align: "center" }); });
   yl += 8;
   var anyGym = HC.allSessions().some(function(r){ return r.s.type === "gym" && r.date >= since; });
-  HC.plan.sessionTypes.forEach(function(t){
+  HC.reportRows().forEach(function(t){
     if(t.id === "gym" && !anyGym && R.ps.phase < 2) return;
     txt(ctx, t.label, xL, yl + 11, { size: 9.5, weight: 600, maxW: LWr - 6 });
     var cnt = 0;
     c.days.forEach(function(m, i){
       var d = m.has ? HC.peekDay(m.key) : null;
-      var done = !!d && (d.sessions.some(function(s){ return s.type === t.id; }) || !!(t.item && [d.wake, d.midday, d.afternoon, d.evening, d.bed].some(function(b){ return b[t.item] === true; })));
+      var done = !!d && t.done(d);
       if(done) cnt++;
       rrect(ctx, xL + LWr + i * sq + 2, yl + 2, sq - 4, 14, 3, done ? C.accent : C.panel, done ? null : C.line);
     });
