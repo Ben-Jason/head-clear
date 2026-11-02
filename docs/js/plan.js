@@ -129,10 +129,32 @@ HC.clearanceDone = function(){ var c = HC.state.clearance; return HC.plan.cleara
 function hoursOnStep(){ var l = HC.state.ladder; return l.stepStartedAt ? (Date.now() - new Date(l.stepStartedAt).getTime()) / 3600000 : 0; }
 function fmtHours(h){ var m = Math.round(Math.max(0, h) * 60); return Math.floor(m / 60) + "h " + (m % 60) + "m"; }
 
+var CONTACT_STEP = 4; // index in HC.LADDER_STEPS of "Full-contact practice"
+// Ticking the hold puts the ladder on the hold step (or leaves it, if it's already past it).
+function toggleLadderCleared(){
+  var p = HC.state.profile, L = HC.state.ladder, H = HC.ladderHold();
+  p.ladderCleared = !p.ladderCleared;
+  if(p.ladderCleared){
+    if(!L.started || L.currentStep < H.index){ L.started = true; L.currentStep = H.index; L.stepStartedAt = new Date().toISOString(); }
+    L.history.push({ date: new Date().toISOString(), event: "cleared", step: L.currentStep });
+  }
+  HC.save();
+}
+function holdRow(H){
+  if(H.phaseOk || HC.state.profile.ladderCleared) return toggleRow(H.label, H.why, HC.state.profile.ladderCleared, toggleLadderCleared);
+  return el("p", { class: "hint", text: "This can be ticked once you reach Phase " + H.afterPhase + "." });
+}
+
 function renderLadder(){
-  var L = HC.state.ladder, card = $("ladderStatusCard");
+  var L = HC.state.ladder, card = $("ladderStatusCard"), H = HC.ladderHold();
+  var started = H.held || L.started, current = H.held ? H.index : L.currentStep;
   card.innerHTML = "";
-  if(!L.started){
+  if(H.held){
+    card.appendChild(el("div", { class: "kv", style: "border-top:none;" }, [el("div", { class: "k", text: "Current step" }), el("div", { class: "v", text: (H.index + 1) + " of 6" })]));
+    card.appendChild(el("div", { class: "kv" }, [el("div", { class: "k", text: "Your plan" }), el("div", { class: "v", text: "Phase " + HC.planStatus().phase })]));
+    card.appendChild(el("p", { class: "small", style: "margin:8px 2px;", text: "You stay on this step through your plan above. The next step is locked until your plan is done and this is ticked." }));
+    card.appendChild(holdRow(H));
+  } else if(!L.started){
     card.appendChild(el("div", { class: "section-title", style: "margin-bottom:8px;", text: "Not started yet" }));
     card.appendChild(el("p", { class: "small", style: "margin-bottom:12px;", text: "Start once the clearance list above is done and your physio agrees." }));
     card.appendChild(el("button", { class: "btn btn-primary", type: "button", text: "Start return-to-sport ladder", onclick: function(){
@@ -146,26 +168,31 @@ function renderLadder(){
     [["Current step", (L.currentStep + 1) + " of 6", ""], ["Time on this step", fmtHours(hrs), ok ? "good" : "warn"], ["48h checkpoint", ok ? "Met" : "Not yet — " + fmtHours(48 - hrs) + " left", ok ? "good" : "warn"]].forEach(function(r, i){
       card.appendChild(el("div", { class: "kv", style: i === 0 ? "border-top:none;" : "" }, [el("div", { class: "k", text: r[0] }), el("div", { class: "v " + r[2], text: r[1] })]));
     });
+    if(H.active) card.appendChild(holdRow(H));
   }
 
   var list = $("ladderList"); list.innerHTML = "";
   HC.LADDER_STEPS.forEach(function(step, i){
     var st = "pending";
-    if(L.started){ if(i < L.currentStep) st = "done"; else if(i === L.currentStep) st = "current"; }
+    if(started){ if(i < current) st = "done"; else if(i === current) st = "current"; }
     list.appendChild(el("div", { class: "rung " + st }, [
       el("div", { class: "dotcol" }, [el("div", { class: "dot", text: st === "done" ? "✓" : String(i + 1) }), el("div", { class: "connector" })]),
-      el("div", { class: "rtxt" }, [el("div", { class: "rname", text: step.name }), step.detail ? el("div", { class: "rdetail", text: step.detail }) : null])
+      el("div", { class: "rtxt" }, [el("div", { class: "rname", text: step.name }), step.detail ? el("div", { class: "rdetail", text: step.detail }) : null, H.held && i === current + 1 ? el("div", { class: "rdetail", text: "Locked until your plan is done." }) : null])
     ]));
   });
 
   var act = $("ladderActions"); act.innerHTML = "";
-  if(L.started){
+  if(L.started && !H.held){
     if(L.currentStep < HC.LADDER_STEPS.length - 1){
       act.appendChild(el("button", { class: "btn btn-primary", type: "button", text: "Advance to step " + (L.currentStep + 2), onclick: function(){
         function adv(){ L.currentStep++; L.stepStartedAt = new Date().toISOString(); L.history.push({ date: new Date().toISOString(), event: "advanced", step: L.currentStep }); HC.save(); }
-        var h = hoursOnStep();
-        if(h < 48) HC.confirm({ title: "Advance early?", message: "Only " + fmtHours(h) + " on this step — under the 48h checkpoint given your history of repeated symptom return. Advance anyway?", confirmLabel: "Advance anyway", danger: true, onConfirm: adv });
-        else adv();
+        var h = hoursOnStep(), left = HC.plan.clearance.length - HC.clearanceDone();
+        function checkTime(){
+          if(h < 48) HC.confirm({ title: "Advance early?", message: "Only " + fmtHours(h) + " on this step — under the 48h checkpoint given your history of repeated symptom return. Advance anyway?", confirmLabel: "Advance anyway", danger: true, onConfirm: adv });
+          else adv();
+        }
+        if(L.currentStep + 1 === CONTACT_STEP && left > 0) HC.confirm({ title: "Advance to contact?", message: left + " item" + (left === 1 ? "" : "s") + " on the clearance list " + (left === 1 ? "isn't" : "aren't") + " ticked yet.", confirmLabel: "Continue anyway", danger: true, onConfirm: checkTime });
+        else checkTime();
       } }));
     } else {
       act.appendChild(el("div", { class: "badge good", style: "margin:0 auto;", text: "Ladder complete — return to competition" }));
@@ -182,7 +209,7 @@ function renderLadder(){
   var h = L.history.slice().reverse();
   if(!h.length) hist.appendChild(el("p", { class: "small", text: "No entries yet." }));
   h.forEach(function(e){
-    var label = e.event === "started" ? "Started ladder" : e.event === "advanced" ? "Advanced to step " + (e.step + 1) : "Symptoms returned at step " + (e.step + 1);
+    var label = e.event === "started" ? "Started ladder" : e.event === "cleared" ? "Cleared to move up from step " + (e.step + 1) : e.event === "advanced" ? "Advanced to step " + (e.step + 1) : "Symptoms returned at step " + (e.step + 1);
     hist.appendChild(el("div", { class: "kv" }, [
       el("div", { class: "k", text: new Date(e.date).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) }),
       el("div", { class: "v", style: "font-family:inherit; font-weight:500;" + (e.event === "reset" ? "color:var(--danger-ink);" : ""), text: label })
