@@ -215,7 +215,9 @@ HC.writeDay = writeDay;
 function yesterdayEmpty(){
   var d = HC.peekDay(HC.addDays(HC.todayKey(), -1));
   if(!d) return true;
-  return !TICK_MAPS.some(function(k){ return Object.keys(d[k]).some(function(id){ return d[k][id] === true; }); });
+  var ticked = TICK_MAPS.some(function(k){ return Object.keys(d[k]).some(function(id){ return d[k][id] === true; }); });
+  var logged = typeof d.sleep.score === "number" || typeof d.auto.rhr === "number" || typeof d.auto.hrv === "number" || typeof d.head.peak === "number" || HC.hiaTouched(d) || !!(d.journal && d.journal.trim()) || d.ev.trig.length > 0 || d.ev.evt.length > 0;
+  return !ticked && !logged;
 }
 function showDay(key){
   flushJournal();
@@ -396,7 +398,9 @@ var journalEl = $("journalInput"), journalTimer, journalPending = null; // the d
 function flushJournal(){
   clearTimeout(journalTimer);
   if(journalPending === null) return;
-  HC.getDay(journalPending).journal = journalEl.value; journalPending = null;
+  var k = journalPending, text = journalEl.value; journalPending = null;
+  if(!text.trim() && !HC.peekDay(k)) return; // don't create an empty day just for a cleared journal
+  HC.getDay(k).journal = text;
   HC.save();
 }
 journalEl.addEventListener("input", function(){
@@ -416,5 +420,5 @@ HC.on.render.push(function(){
   renderSleep(); renderRhythm(); renderMeds(); renderStanding(); renderJournal();
 });
 HC.on.refresh.push(function(){ renderHero(); renderStepUp(); renderMorning(); renderAvoid(); renderSparkline(); });
-HC.on.show.today = [function(){ sleepOpen = false; renderHero(); renderStepUp(); renderMorning(); renderAvoid(); renderRhythm(); renderMeds(); renderSleep(); renderHIASummary(); }];
+HC.on.show.today = [function(){ flushJournal(); viewing = null; hiaExpanded = false; sleepOpen = false; renderJournal(true); renderHIA(); renderHero(); renderStepUp(); renderMorning(); renderAvoid(); renderRhythm(); renderMeds(); renderSleep(); renderHIASummary(); }];
 })();
