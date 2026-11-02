@@ -56,9 +56,14 @@
       <div class="card step-card" id="dueCard" hidden></div>
       <div class="card avoid-card" id="avoidCard"></div>
 
+      <div class="card" id="dayCard">
+        <div id="dayToggle"></div>
+        <div id="yBanner" class="y-banner" hidden></div>
+      </div>
+
       <div class="card" id="hiaCard">
         <div class="block-head" style="margin-bottom:2px;">
-          <div class="section-title" style="margin:0;">Symptom evaluation</div>
+          <div class="section-title" id="hiaTitle" style="margin:0;">Symptom evaluation</div>
           <button class="btn btn-ghost btn-sm" id="hiaToggleBtn" type="button">Start</button>
         </div>
         <p class="small" style="margin:2px 2px 12px;">Rate each symptom 0 (none) to 6 (severe) — the same 22-item scale and scoring used in a World Rugby Head Injury Assessment.</p>
@@ -75,8 +80,6 @@
           <div class="section-title" id="rhythmTitle" style="margin:0;">Today's rhythm</div>
           <button class="btn btn-ghost btn-sm" id="editChecklistBtn" type="button">Edit</button>
         </div>
-        <div id="dayToggle" style="margin:10px 0 4px;"></div>
-        <div id="yBanner" class="y-banner" hidden></div>
         <p class="small" id="editHint" hidden style="margin:2px 2px 10px;">Tap an item to reword, hide or remove it. Use “+ Add” under a section to add your own tick-box.</p>
         <div id="rhythmBlocks" class="stack"></div>
       </div>
@@ -91,7 +94,7 @@
       </div>
 
       <div class="card">
-        <div class="section-title" style="margin-bottom:10px;">A couple of lines for today</div>
+        <div class="section-title" id="journalTitle" style="margin-bottom:10px;">A couple of lines for today</div>
         <textarea class="journal" id="journalInput" placeholder="Symptoms, triggers, what helped — this is what your physio will want to see."></textarea>
       </div>
     </section>

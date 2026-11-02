@@ -1,5 +1,6 @@
 /* today.js — the daily dashboard: plan hero, step-up prompt, morning-after check,
-   avoid list, HIA symptom evaluation, sleep, rhythm checklist, meds, journal. */
+   avoid list, HIA symptom evaluation, sleep, rhythm checklist, meds, journal.
+   The Yesterday | Today switch decides which day every log on this page reads and writes. */
 (function(){
 "use strict";
 var HC = window.HC, el = HC.el, $ = HC.$;
@@ -104,7 +105,7 @@ function syncSymptomScore(day){
   day.symptomScore = Math.round((HC.hiaSeverity(day) / HC.HIA_MAX) * 10);
 }
 function renderHIASummary(){
-  var root = $("hiaSummary"), day = HC.today(), touched = HC.hiaTouched(day);
+  var root = $("hiaSummary"), day = readDay(), touched = HC.hiaTouched(day);
   root.innerHTML = "";
   [[touched ? HC.hiaCount(day) + " / " + HC.HIA_SYMPTOMS.length : "—", "Symptoms present"],
    [touched ? HC.hiaSeverity(day) + " / " + HC.HIA_MAX : "—", "Severity score"]].forEach(function(r){
@@ -112,7 +113,7 @@ function renderHIASummary(){
   });
 }
 function renderHIA(){
-  var toggle = $("hiaToggleBtn"), list = $("hiaList"), day = HC.today();
+  var toggle = $("hiaToggleBtn"), list = $("hiaList"), day = readDay();
   list.hidden = !hiaExpanded;
   toggle.textContent = hiaExpanded ? "Hide" : (HC.hiaTouched(day) ? "Edit" : "Start");
   if(hiaExpanded){
@@ -125,7 +126,7 @@ function renderHIA(){
         scale
       ]));
       HC.renderScale(scale, rated ? val : null, function(v){
-        var d = HC.today();
+        var d = writeDay();
         d.hia[s.id] = v;
         syncSymptomScore(d);
         HC.save();
@@ -161,13 +162,13 @@ function sleepAvg(){
 }
 var sleepOpen = false; // editing an already-logged score; collapses again on the next visit to Today
 function renderSleep(){
-  var box = $("sleepCard"), sl = HC.today().sleep, logged = typeof sl.score === "number", avg = sleepAvg();
+  var box = $("sleepCard"), sl = readDay().sleep, logged = typeof sl.score === "number", avg = sleepAvg(), y = viewKey();
   box.innerHTML = "";
   var btn = logged ? el("button", { type: "button", class: "btn btn-ghost btn-sm", text: sleepOpen ? "Done" : "Edit", onclick: function(){ sleepOpen = !sleepOpen; renderSleep(); } }) : null;
-  box.appendChild(el("div", { class: "block-head", style: "margin-bottom:2px;" }, [el("div", { class: "section-title", style: "margin:0;", text: "Last night's sleep" }), btn]));
+  box.appendChild(el("div", { class: "block-head", style: "margin-bottom:2px;" }, [el("div", { class: "section-title", style: "margin:0;", text: y ? "Sleep · yesterday's record" : "Last night's sleep" }), btn]));
   if(logged && !sleepOpen){
     box.appendChild(el("div", { class: "log-summary", style: "margin-top:8px;" }, [
-      el("div", { class: "stat-tile" }, [el("b", { text: sl.score + "/100" }), el("span", { text: "Saved for last night" })]),
+      el("div", { class: "stat-tile" }, [el("b", { text: sl.score + "/100" }), el("span", { text: y ? "Saved for yesterday" : "Saved for last night" })]),
       el("div", { class: "stat-tile" }, [el("b", { text: avg === null ? "—" : Math.round(avg) + "/100" }), el("span", { text: "7-night average" })])
     ]));
     return;
@@ -178,7 +179,7 @@ function renderSleep(){
     var v = inp.value === "" ? null : Math.round(+inp.value);
     if(v !== null && (isNaN(v) || v < 0 || v > 100)){ inp.classList.add("err"); return; }
     inp.classList.remove("err");
-    var d = HC.today(); if(v === null) delete d.sleep.score; else d.sleep.score = v;
+    var d = writeDay(); if(v === null) delete d.sleep.score; else d.sleep.score = v;
     sleepOpen = false;
     HC.save(); renderSleep();
   });
@@ -201,38 +202,48 @@ function checkRow(o){
 var editMode = false;
 function redrawLists(){ renderRhythm(); renderStanding(); }
 
-/* ---------------- yesterday view: tick the checklist, background habits and meds for yesterday ---------------- */
+/* ---------------- yesterday view: every log on this page follows the Yesterday | Today switch ---------------- */
 var viewing = null; // yesterday's date key while the "Yesterday" tab is selected
 var TICK_MAPS = ["wake", "midday", "afternoon", "evening", "bed", "standing", "meds"];
 function viewKey(){ var y = HC.addDays(HC.todayKey(), -1); if(viewing && viewing !== y) viewing = null; return viewing; }
-function emptyShape(){ var o = {}; TICK_MAPS.forEach(function(k){ o[k] = {}; }); return o; }
+function emptyShape(){ var o = { hia: {}, sleep: {}, auto: {}, head: {}, ev: { trig: [], evt: [] }, journal: "" }; TICK_MAPS.forEach(function(k){ o[k] = {}; }); return o; }
 function readDay(){ var k = viewKey(); return k ? (HC.peekDay(k) || emptyShape()) : HC.today(); }
-function writeDay(){ var k = viewKey(); return k ? HC.getDay(k) : HC.today(); } // only creates yesterday's record when something is ticked
+function writeDay(){ var k = viewKey(); return k ? HC.getDay(k) : HC.today(); } // only creates yesterday's record when something is logged
+HC.viewingYesterday = function(){ return !!viewKey(); };
+HC.readDay = readDay;
+HC.writeDay = writeDay;
 function yesterdayEmpty(){
   var d = HC.peekDay(HC.addDays(HC.todayKey(), -1));
   if(!d) return true;
   return !TICK_MAPS.some(function(k){ return Object.keys(d[k]).some(function(id){ return d[k][id] === true; }); });
 }
-function redrawAll(){ renderRhythm(); renderStanding(); renderMeds(); }
+function showDay(key){
+  flushJournal();
+  viewing = key; hiaExpanded = false; sleepOpen = false;
+  renderRhythm(); renderStanding(); renderMeds(); renderHIA(); renderSleep(); renderJournal(true);
+  (HC.on.dayView || []).forEach(function(fn){ fn(); });
+}
 function renderDayToggle(){
   var y = HC.addDays(HC.todayKey(), -1), on = viewKey();
   var box = $("dayToggle"), banner = $("yBanner");
   box.innerHTML = "";
   var wrap = el("div", { class: "seg" });
   [["Yesterday", y], ["Today", null]].forEach(function(o){
-    wrap.appendChild(el("button", { type: "button", class: (on || null) === o[1] ? "on" : "", text: o[0], onclick: function(){ viewing = o[1]; redrawAll(); } }));
+    wrap.appendChild(el("button", { type: "button", class: (on || null) === o[1] ? "on" : "", text: o[0], onclick: function(){ showDay(o[1]); } }));
   });
   box.appendChild(wrap);
   $("rhythmTitle").textContent = on ? "Yesterday's rhythm" : "Today's rhythm";
   $("standingTitle").textContent = on ? "Running in the background · yesterday" : "Running in the background";
+  $("hiaTitle").textContent = on ? "Symptom evaluation · yesterday" : "Symptom evaluation";
+  $("journalTitle").textContent = on ? "A couple of lines for yesterday" : "A couple of lines for today";
   banner.innerHTML = "";
   if(on){
     banner.hidden = false;
-    banner.appendChild(el("span", { text: "Editing " + HC.fmtDate(on, { weekday: "long", day: "numeric", month: "short" }) + ". Your ticks here count for that day." }));
+    banner.appendChild(el("span", { text: "Editing " + HC.fmtDate(on, { weekday: "long", day: "numeric", month: "short" }) + ". Everything you log on this page counts for that day." }));
   } else if(yesterdayEmpty() && HC.state.ui.yDismissed !== HC.todayKey()){
     banner.hidden = false;
     banner.appendChild(el("span", { text: "Nothing was ticked yesterday." }));
-    banner.appendChild(el("button", { type: "button", class: "link-btn", text: "Check in for yesterday", onclick: function(){ viewing = y; redrawAll(); } }));
+    banner.appendChild(el("button", { type: "button", class: "link-btn", text: "Check in for yesterday", onclick: function(){ showDay(y); } }));
     banner.appendChild(el("button", { type: "button", class: "link-btn", style: "color:var(--ink-faint);", text: "Dismiss", onclick: function(){ HC.state.ui.yDismissed = HC.todayKey(); HC.save(); renderDayToggle(); } }));
   } else banner.hidden = true;
 }
@@ -381,18 +392,25 @@ function renderMeds(){
 }
 
 /* ---------------- journal ---------------- */
-var journalEl = $("journalInput"), journalTimer;
+var journalEl = $("journalInput"), journalTimer, journalPending = null; // the day being typed for, so a switch can't save it onto the wrong day
+function flushJournal(){
+  clearTimeout(journalTimer);
+  if(journalPending === null) return;
+  HC.getDay(journalPending).journal = journalEl.value; journalPending = null;
+  HC.save();
+}
 journalEl.addEventListener("input", function(){
   clearTimeout(journalTimer);
-  journalTimer = setTimeout(function(){ HC.today().journal = journalEl.value; HC.save(); }, 400);
+  journalPending = viewKey() || HC.todayKey();
+  journalTimer = setTimeout(flushJournal, 400);
 });
-function renderJournal(){ if(document.activeElement !== journalEl) journalEl.value = HC.today().journal || ""; }
+function renderJournal(viewChanged){ if(viewChanged === true || document.activeElement !== journalEl) journalEl.value = readDay().journal || ""; }
 
 /* ---------------- sos shortcut ---------------- */
 $("sosBtn").addEventListener("click", function(){ HC.switchTab("info"); var f = $("redFlagList"); if(f) f.scrollIntoView({ block: "start" }); });
 
 /* ---------------- wiring ---------------- */
-HC.resetTodayUI = function(){ hiaExpanded = false; sleepOpen = false; editMode = false; viewing = null; journalEl.value = ""; };
+HC.resetTodayUI = function(){ hiaExpanded = false; sleepOpen = false; editMode = false; viewing = null; clearTimeout(journalTimer); journalPending = null; journalEl.value = ""; };
 HC.on.render.push(function(){
   renderHero(); renderStepUp(); renderMorning(); renderAvoid(); renderHIA(); renderSparkline();
   renderSleep(); renderRhythm(); renderMeds(); renderStanding(); renderJournal();
