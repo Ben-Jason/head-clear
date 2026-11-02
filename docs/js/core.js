@@ -233,6 +233,41 @@ HC.rhythm = function(){
 };
 HC.standingItems = function(){ return userEdit(HC.STANDING.slice(), "standing"); };
 
+/* ---------------- what counts as done on a day (weekly report) ---------------- */
+var TICK_BLOCKS = ["wake", "midday", "afternoon", "evening", "bed", "standing"];
+HC.itemTicked = function(day, id){ return TICK_BLOCKS.some(function(b){ return !!day[b] && day[b][id] === true; }); };
+function allItems(){
+  var out = [];
+  HC.rhythm().forEach(function(b){ out = out.concat(b.items); });
+  return out.concat(HC.standingItems());
+}
+function plainWords(s){ return " " + HC.fmt(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim() + " "; }
+// A tick-box counts for a session type when it's linked by id, or when its wording names the type:
+// a box the user added themselves has no link, but "Evening walk (20 min)" is still the "Evening walk" type.
+function typeItemIds(t){
+  var name = plainWords(t.label);
+  var ids = allItems().filter(function(it){ return name.trim() && plainWords(it.label).indexOf(name) >= 0; }).map(function(it){ return it.id; });
+  if(t.item) ids.push(t.item);
+  return ids;
+}
+HC.sessionTypeDone = function(day, t, ids){
+  ids = ids || typeItemIds(t);
+  return day.sessions.some(function(s){ return s.type === t.id; }) || ids.some(function(id){ return HC.itemTicked(day, id); });
+};
+// The rows of "Training & rehab done": every session type, then any tick-box the user added to it.
+HC.reportRows = function(){
+  var used = {}, rows = HC.plan.sessionTypes.map(function(t){
+    var ids = typeItemIds(t);
+    ids.forEach(function(id){ used[id] = true; });
+    return { id: t.id, label: t.label, done: function(day){ return HC.sessionTypeDone(day, t, ids); } };
+  });
+  allItems().forEach(function(it){
+    if(!HC.state.custom.reportBars[it.id] || used[it.id]) return;
+    rows.push({ id: it.id, label: HC.fmt(it.label), done: function(day){ return HC.itemTicked(day, it.id); } });
+  });
+  return rows;
+};
+
 HC.typeLabel = function(id){
   var t = HC.plan.sessionTypes;
   for(var i = 0; i < t.length; i++) if(t[i].id === id) return t[i].label;
@@ -265,7 +300,7 @@ HC.defaultState = function(){
     hidden: { rhythm: {}, standing: {} }, featureNotes: "", feedback: { key: "", sent: [] },
     profile: defaultProfile(), meds: defaultMeds(), bctt: [], bcttNext: null, clearance: {}, ui: { avoidOpen: false },
     tests: [], questions: [],
-    custom: { items: {}, added: [], removedLabels: {} }
+    custom: { items: {}, added: [], removedLabels: {}, reportBars: {} }
   };
 };
 function load(){
@@ -296,7 +331,7 @@ function load(){
     d.clearance = p.clearance && typeof p.clearance === "object" ? p.clearance : {};
     d.ui = Object.assign({ avoidOpen: false }, p.ui || {});
     var c = p.custom && typeof p.custom === "object" ? p.custom : {};
-    d.custom = { items: c.items && typeof c.items === "object" ? c.items : {}, added: Array.isArray(c.added) ? c.added : [], removedLabels: c.removedLabels && typeof c.removedLabels === "object" ? c.removedLabels : {} };
+    d.custom = { items: c.items && typeof c.items === "object" ? c.items : {}, added: Array.isArray(c.added) ? c.added : [], removedLabels: c.removedLabels && typeof c.removedLabels === "object" ? c.removedLabels : {}, reportBars: c.reportBars && typeof c.reportBars === "object" ? c.reportBars : {} };
     return d;
   }catch(e){ return HC.defaultState(); }
 }

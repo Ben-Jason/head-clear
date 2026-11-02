@@ -248,10 +248,16 @@ function editItemModal(it, blockKey){
   var label = el("input", { type: "text", value: it.label, maxlength: "140" });
   var why = el("input", { type: "text", value: it.why || "", placeholder: "Optional small note under it", maxlength: "200" });
   var hidden = isHidden(blockKey, it.id);
+  var inReport = !!cu.reportBars[it.id];
+  var reportBtn = el("button", { type: "button", class: "check-item" + (inReport ? " done" : ""), onclick: function(){ inReport = !inReport; reportBtn.classList.toggle("done", inReport); } }, [
+    el("span", { class: "box", html: HC.ICON_CHECK }),
+    el("span", { class: "txt" }, [el("b", { text: "Show in weekly report" }), el("span", { class: "why", text: "Adds a row of day bars under “Training & rehab done”." })])
+  ]);
   HC.openModal([
     el("h3", { text: "Edit item" }),
     el("div", { class: "field" }, [el("label", { text: "Wording" }), label]),
     el("div", { class: "field" }, [el("label", { text: "Note" }), why]),
+    reportBtn,
     el("div", { class: "summary-actions" }, [
       el("button", { class: "btn btn-ghost btn-sm", type: "button", style: "flex:1;", text: hidden ? "Show again" : "Hide for now", onclick: function(){
         setHidden(blockKey, it.id, !hidden); HC.save(); HC.closeModal(); redrawLists();
@@ -270,6 +276,7 @@ function editItemModal(it, blockKey){
       el("button", { class: "btn btn-primary", type: "button", text: "Save", onclick: function(){
         var txt = label.value.trim();
         if(!txt){ label.classList.add("err"); return; }
+        if(inReport) cu.reportBars[it.id] = true; else delete cu.reportBars[it.id];
         if(it.custom){
           cu.added.forEach(function(a){ if(a.id === it.id){ a.label = txt; a.why = why.value.trim(); } });
         } else {
@@ -339,7 +346,7 @@ function renderRhythm(){
     root.appendChild(el("button", { type: "button", class: "link-btn", style: "color:var(--danger-ink); align-self:flex-start;", text: "Restore the original list", onclick: function(){
       HC.confirm({ title: "Restore the original list?", message: "Your reworded, added and removed items go back to the app's defaults. Hidden items stay hidden. Past ticks are kept.", confirmLabel: "Restore", danger: true, onConfirm: function(){
         var rl = HC.state.custom.removedLabels; HC.state.custom.added.forEach(function(x){ rl[x.id] = x.label; });
-        HC.state.custom = { items: {}, added: [], removedLabels: rl }; HC.save(); redrawLists();
+        HC.state.custom = { items: {}, added: [], removedLabels: rl, reportBars: HC.state.custom.reportBars }; HC.save(); redrawLists();
       } });
     } }));
   }
