@@ -126,16 +126,24 @@ function renderClearance(){
 HC.clearanceDone = function(){ var c = HC.state.clearance; return HC.plan.clearance.filter(function(i){ return c[i.id] && c[i.id].done; }).length; };
 
 /* ---------------- return-to-sport ladder ---------------- */
-function hoursOnStep(){ var l = HC.state.ladder; return l.stepStartedAt ? (Date.now() - new Date(l.stepStartedAt).getTime()) / 3600000 : 0; }
+function hoursSince(t){ return t ? (Date.now() - new Date(t).getTime()) / 3600000 : 0; }
 function fmtHours(h){ var m = Math.round(Math.max(0, h) * 60); return Math.floor(m / 60) + "h " + (m % 60) + "m"; }
+function fmtTime(h){ return h >= 72 ? Math.floor(h / 24) + " days" : fmtHours(h); }
 
 var CONTACT_STEP = 4; // index in HC.LADDER_STEPS of "Full-contact practice"
-// Ticking the hold puts the ladder on the hold step (or leaves it, if it's already past it).
+// Where the ladder is now. While held, the hold step is a ceiling, and an unstarted ladder
+// counts as sitting on the hold step since the plan started.
+function ladderPos(H){
+  var L = HC.state.ladder;
+  if(H.held && !L.started){ var d = HC.parseKey(HC.state.profile.planStart); d.setHours(0, 0, 0, 0); return { step: H.index, since: d.toISOString() }; }
+  return { step: H.held ? Math.min(L.currentStep, H.index) : L.currentStep, since: L.stepStartedAt };
+}
+// Ticking the hold starts the ladder on the hold step, keeping the time already spent there.
 function toggleLadderCleared(){
-  var p = HC.state.profile, L = HC.state.ladder, H = HC.ladderHold();
+  var p = HC.state.profile, L = HC.state.ladder, H = HC.ladderHold(), pos = ladderPos(H);
   p.ladderCleared = !p.ladderCleared;
   if(p.ladderCleared){
-    if(!L.started || L.currentStep < H.index){ L.started = true; L.currentStep = H.index; L.stepStartedAt = new Date().toISOString(); }
+    if(!L.started){ L.started = true; L.currentStep = pos.step; L.stepStartedAt = pos.since; }
     L.history.push({ date: new Date().toISOString(), event: "cleared", step: L.currentStep });
   }
   HC.save();
@@ -146,13 +154,16 @@ function holdRow(H){
 }
 
 function renderLadder(){
-  var L = HC.state.ladder, card = $("ladderStatusCard"), H = HC.ladderHold();
-  var started = H.held || L.started, current = H.held ? H.index : L.currentStep;
+  var L = HC.state.ladder, card = $("ladderStatusCard"), H = HC.ladderHold(), pos = ladderPos(H);
+  var started = H.held || L.started, current = pos.step, hrs = hoursSince(pos.since);
   card.innerHTML = "";
   if(H.held){
-    card.appendChild(el("div", { class: "kv", style: "border-top:none;" }, [el("div", { class: "k", text: "Current step" }), el("div", { class: "v", text: (H.index + 1) + " of 6" })]));
-    card.appendChild(el("div", { class: "kv" }, [el("div", { class: "k", text: "Your plan" }), el("div", { class: "v", text: "Phase " + HC.planStatus().phase })]));
-    card.appendChild(el("p", { class: "small", style: "margin:8px 2px;", text: "You stay on this step through your plan above. The next step is locked until your plan is done and this is ticked." }));
+    [["Current step", (current + 1) + " of 6"], ["Time on this step", fmtTime(hrs)], ["Your plan", "Phase " + HC.planStatus().phase]].forEach(function(r, i){
+      card.appendChild(el("div", { class: "kv", style: i === 0 ? "border-top:none;" : "" }, [el("div", { class: "k", text: r[0] }), el("div", { class: "v", text: r[1] })]));
+    });
+    card.appendChild(el("p", { class: "small", style: "margin:8px 2px;", text: current < H.index
+      ? "Work back up to step " + (H.index + 1) + ". You stay there through your plan above."
+      : "You stay on this step through your plan above. The next step is locked until your plan is done and this is ticked." }));
     card.appendChild(holdRow(H));
   } else if(!L.started){
     card.appendChild(el("div", { class: "section-title", style: "margin-bottom:8px;", text: "Not started yet" }));
@@ -164,8 +175,8 @@ function renderLadder(){
       else go();
     } }));
   } else {
-    var hrs = hoursOnStep(), ok = hrs >= 48;
-    [["Current step", (L.currentStep + 1) + " of 6", ""], ["Time on this step", fmtHours(hrs), ok ? "good" : "warn"], ["48h checkpoint", ok ? "Met" : "Not yet — " + fmtHours(48 - hrs) + " left", ok ? "good" : "warn"]].forEach(function(r, i){
+    var ok = hrs >= 48;
+    [["Current step", (L.currentStep + 1) + " of 6", ""], ["Time on this step", fmtTime(hrs), ok ? "good" : "warn"], ["48h checkpoint", ok ? "Met" : "Not yet — " + fmtHours(48 - hrs) + " left", ok ? "good" : "warn"]].forEach(function(r, i){
       card.appendChild(el("div", { class: "kv", style: i === 0 ? "border-top:none;" : "" }, [el("div", { class: "k", text: r[0] }), el("div", { class: "v " + r[2], text: r[1] })]));
     });
     if(H.active) card.appendChild(holdRow(H));
@@ -177,21 +188,22 @@ function renderLadder(){
     if(started){ if(i < current) st = "done"; else if(i === current) st = "current"; }
     list.appendChild(el("div", { class: "rung " + st }, [
       el("div", { class: "dotcol" }, [el("div", { class: "dot", text: st === "done" ? "✓" : String(i + 1) }), el("div", { class: "connector" })]),
-      el("div", { class: "rtxt" }, [el("div", { class: "rname", text: step.name }), step.detail ? el("div", { class: "rdetail", text: step.detail }) : null, H.held && i === current + 1 ? el("div", { class: "rdetail", text: "Locked until your plan is done." }) : null])
+      el("div", { class: "rtxt" }, [el("div", { class: "rname", text: step.name }), step.detail ? el("div", { class: "rdetail", text: step.detail }) : null, H.held && i === H.index + 1 ? el("div", { class: "rdetail", text: "Locked until your plan is done." }) : null])
     ]));
   });
 
   var act = $("ladderActions"); act.innerHTML = "";
-  if(L.started && !H.held){
-    if(L.currentStep < HC.LADDER_STEPS.length - 1){
-      act.appendChild(el("button", { class: "btn btn-primary", type: "button", text: "Advance to step " + (L.currentStep + 2), onclick: function(){
-        function adv(){ L.currentStep++; L.stepStartedAt = new Date().toISOString(); L.history.push({ date: new Date().toISOString(), event: "advanced", step: L.currentStep }); HC.save(); }
-        var h = hoursOnStep(), left = HC.plan.clearance.length - HC.clearanceDone();
+  if(started){
+    if(H.held && current >= H.index){ /* the next step is locked while held */ }
+    else if(current < HC.LADDER_STEPS.length - 1){
+      act.appendChild(el("button", { class: "btn btn-primary", type: "button", text: "Advance to step " + (current + 2), onclick: function(){
+        function adv(){ L.started = true; L.currentStep = current + 1; L.stepStartedAt = new Date().toISOString(); L.history.push({ date: new Date().toISOString(), event: "advanced", step: L.currentStep }); HC.save(); }
+        var h = hrs, left = HC.plan.clearance.length - HC.clearanceDone();
         function checkTime(){
           if(h < 48) HC.confirm({ title: "Advance early?", message: "Only " + fmtHours(h) + " on this step — under the 48h checkpoint given your history of repeated symptom return. Advance anyway?", confirmLabel: "Advance anyway", danger: true, onConfirm: adv });
           else adv();
         }
-        if(L.currentStep + 1 === CONTACT_STEP && left > 0) HC.confirm({ title: "Advance to contact?", message: left + " item" + (left === 1 ? "" : "s") + " on the clearance list " + (left === 1 ? "isn't" : "aren't") + " ticked yet.", confirmLabel: "Continue anyway", danger: true, onConfirm: checkTime });
+        if(current + 1 === CONTACT_STEP && left > 0) HC.confirm({ title: "Advance to contact?", message: left + " item" + (left === 1 ? "" : "s") + " on the clearance list " + (left === 1 ? "isn't" : "aren't") + " ticked yet.", confirmLabel: "Continue anyway", danger: true, onConfirm: checkTime });
         else checkTime();
       } }));
     } else {
@@ -199,8 +211,8 @@ function renderLadder(){
     }
     act.appendChild(el("button", { class: "btn btn-ghost", type: "button", style: "color:var(--danger-ink);", text: "Symptoms returned — step back", onclick: function(){
       HC.confirm({ title: "Log a symptom return?", message: "This drops you back to the previous step and restarts the 48h checkpoint from there.", confirmLabel: "Step back", danger: true, onConfirm: function(){
-        L.history.push({ date: new Date().toISOString(), event: "reset", step: L.currentStep });
-        L.currentStep = Math.max(0, L.currentStep - 1); L.stepStartedAt = new Date().toISOString(); HC.save();
+        L.history.push({ date: new Date().toISOString(), event: "reset", step: current });
+        L.started = true; L.currentStep = Math.max(0, current - 1); L.stepStartedAt = new Date().toISOString(); HC.save();
       } });
     } }));
   }
