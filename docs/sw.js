@@ -1,7 +1,7 @@
 // Bump V on every release, and bump the ?v= on the css/js links in index.html to match.
 // A new CACHE name makes the browser install a complete, consistent set of files at once,
 // so an old cached index.html can never be paired with newer scripts.
-const V = "17";
+const V = "18";
 const CACHE = "headclear-v" + V;
 const SHELL = [
   "./",
