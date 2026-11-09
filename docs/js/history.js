@@ -126,19 +126,26 @@ function renderSleepChart(){
 }
 
 /* ---------------- day list + detail ---------------- */
+// Symptoms present out of 22 when the evaluation was done; older days keep their /10 rating.
+// cls is the score on a 0-10 scale for the colour bands.
+function symptomsShown(day){
+  if(HC.hiaTouched(day)){ var n = HC.hiaCount(day), of = HC.HIA_SYMPTOMS.length; return { text: n + "/" + of, cls: n / of * 10 }; }
+  var sc = day.symptomScore;
+  return (sc === null || sc === undefined) ? null : { text: sc + "/10", cls: sc };
+}
 function renderList(){
   var root = $("historyList"), keys = Object.keys(HC.state.days).sort().reverse();
   root.innerHTML = "";
   if(!keys.length){ root.appendChild(el("p", { class: "small", style: "text-align:center; padding:20px 0;", text: "No days logged yet." })); return; }
   keys.forEach(function(key){
-    var day = HC.getDay(key), sc = day.symptomScore, none = sc === null || sc === undefined;
+    var day = HC.getDay(key), sx = symptomsShown(day), none = !sx, sc = sx && sx.cls;
     var meta = [dayCompletedCount(day) + " done"];
     if(day.sessions.length) meta.push(day.sessions.length + " session" + (day.sessions.length > 1 ? "s" : ""));
     root.appendChild(el("button", { type: "button", class: "history-row", onclick: function(){ showDayDetail(key); } }, [
       el("div", { class: "hist-date", text: key === HC.todayKey() ? "Today" : HC.fmtDate(key) }),
       el("div", { class: "hist-mid" }, [
         el("span", { class: "hist-dot", style: "background:" + (none ? "var(--ink-faint)" : sc <= 2 ? "var(--good)" : sc <= 5 ? "var(--warn)" : "var(--danger)") + ";" }),
-        el("span", { class: "hist-score", text: none ? "—" : sc + "/10" })
+        el("span", { class: "hist-score", text: none ? "—" : sx.text })
       ]),
       el("div", { class: "hist-meta", text: meta.join(" · ") })
     ]));
@@ -157,10 +164,10 @@ function sessionLine(s){
 }
 function showDayDetail(key){
   var day = HC.getDay(key), body = el("div", { class: "stack", style: "gap:14px; max-height:56vh; overflow-y:auto; padding-right:2px;" });
-  var sc = day.symptomScore;
-  body.appendChild(el("div", { class: "kv", style: "border-top:none;" }, [el("div", { class: "k", text: "Overall symptoms" }), el("div", { class: "v", text: (sc === null || sc === undefined) ? "Not logged" : sc + "/10" })]));
+  var sx = symptomsShown(day);
+  body.appendChild(el("div", { class: "kv", style: "border-top:none;" }, [el("div", { class: "k", text: HC.hiaTouched(day) ? "Symptoms present" : "Overall symptoms" }), el("div", { class: "v", text: sx ? sx.text : "Not logged" })]));
   if(HC.hiaTouched(day)){
-    body.appendChild(el("div", { class: "kv" }, [el("div", { class: "k", text: "HIA severity score" }), el("div", { class: "v", text: HC.hiaSeverity(day) + " / " + HC.HIA_MAX + " (" + HC.hiaCount(day) + " symptoms)" })]));
+    body.appendChild(el("div", { class: "kv" }, [el("div", { class: "k", text: "Severity score" }), el("div", { class: "v", text: HC.hiaSeverity(day) + " / " + HC.HIA_MAX })]));
     body.appendChild(group("Symptom evaluation", HC.HIA_SYMPTOMS.filter(function(s){ return typeof day.hia[s.id] === "number"; }).map(function(s){ return s.label + " — " + day.hia[s.id] + "/6"; })));
   }
   if(day.sessions.length) body.appendChild(group("Sessions", day.sessions.map(sessionLine)));
@@ -206,7 +213,7 @@ function buildSummary(){
     var k = HC.addDays(t, -i), d = HC.peekDay(k);
     if(!d) continue;
     var lines = [];
-    if(HC.hiaTouched(d)) lines.push("  Symptoms (HIA 0–6 x 22): severity " + HC.hiaSeverity(d) + "/" + HC.HIA_MAX + ", " + HC.hiaCount(d) + " symptoms");
+    if(HC.hiaTouched(d)) lines.push("  Symptoms: " + HC.hiaCount(d) + "/" + HC.HIA_SYMPTOMS.length + " present, severity " + HC.hiaSeverity(d) + "/" + HC.HIA_MAX);
     else if(d.symptomScore !== null && d.symptomScore !== undefined) lines.push("  Symptoms: " + d.symptomScore + "/10");
     d.sessions.forEach(function(s){ lines.push("  " + sessionLine(s)); });
     if(typeof d.sleep.score === "number") lines.push("  Sleep score: " + d.sleep.score + "/100");
