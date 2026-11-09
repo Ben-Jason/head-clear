@@ -66,8 +66,7 @@ function summarize(keys){
   });
   var D = S.days;
   S.logged = D.filter(function(m){ return m.logged; }).length;
-  S.sx = mean(D.map(function(m){ return m.sx; }));
-  S.sxN = D.filter(function(m){ return m.sx !== null && m.sx !== undefined; }).length;
+  S.hiaDays = D.filter(function(m){ return isNum(m.hiaN); }).length;
   S.hia = mean(D.map(function(m){ return m.hia; }));
   S.hiaN = mean(D.map(function(m){ return m.hiaN; }));
   S.sleep = mean(D.map(function(m){ return m.sleep; }));
@@ -89,23 +88,43 @@ function summarize(keys){
   });
   S.symptomMean = {};
   Object.keys(S.symptom).forEach(function(id){ S.symptomMean[id] = mean(S.symptom[id]); });
-  var inWin = HC.sortedTests().filter(function(t){ return t.date >= keys[0] && t.date <= keys[6]; });
-  S.test = inWin[0] || null;
+  S.test = mergeTests(testsNewestFirst().filter(function(t){ return t.date >= keys[0] && t.date <= keys[6]; }));
   return S;
+}
+
+// Tests logged at different times are separate records. Each group is measured together,
+// so take each group from the first record (in the given order) that has it.
+var TEST_GROUPS = [["npc"], ["rtL", "rtR"], ["hrLie", "hrS1", "hrS3"]];
+function testsNewestFirst(){
+  var all = HC.state.tests;
+  return all.map(function(t, i){ return { t: t, i: i }; })
+    .sort(function(a, b){ return a.t.date === b.t.date ? b.i - a.i : a.t.date < b.t.date ? 1 : -1; })
+    .map(function(x){ return x.t; });
+}
+function mergeTests(list){
+  var out = { dates: [] };
+  TEST_GROUPS.forEach(function(g){
+    var t = list.filter(function(x){ return g.some(function(f){ return isNum(x[f]); }); })[0];
+    if(!t) return;
+    g.forEach(function(f){ out[f] = t[f]; });
+    if(out.dates.indexOf(t.date) < 0) out.dates.push(t.date);
+  });
+  out.dates.sort();
+  return out.dates.length ? out : null;
 }
 
 function buildReport(end){
   var keys = keysEnding(end), prevKeys = keysEnding(HC.addDays(end, -7));
   var cur = summarize(keys), prev = summarize(prevKeys);
-  var tests = HC.sortedTests();
-  var before = tests.filter(function(t){ return t.date < keys[0]; })[0] || null;
+  var tests = testsNewestFirst();
+  var before = mergeTests(tests.filter(function(t){ return t.date < keys[0]; }));
   var p = HC.state.profile, ps = HC.planStatus();
   var lastB = HC.state.bctt.slice().sort(function(a, b){ return a.date < b.date ? 1 : -1; })[0] || null;
   return {
     end: end, keys: keys, cur: cur, prev: prev, hasPrev: prev.logged > 0,
     name: (p.name || "").trim(), context: (HC.plan.reportContext || "").trim(),
     profile: p, ps: ps, phaseName: HC.plan.phaseNames[ps.phase - 1], bcttNext: HC.bcttPhrase(), bcttLast: lastB,
-    testNow: cur.test, testBefore: before, testFirst: tests.length ? tests[tests.length - 1] : null,
+    testNow: cur.test, testBefore: before, testFirst: mergeTests(tests.slice().reverse()),
     questions: HC.state.questions.filter(function(q){ return !q.done; }),
     generated: HC.fmtDate(HC.todayKey(), { day: "numeric", month: "short", year: "numeric" }),
     range: dayLabel(keys[0], { weekday: "short", day: "numeric", month: "short" }) + " – " + dayLabel(keys[6], { weekday: "short", day: "numeric", month: "short", year: "numeric" })
@@ -294,8 +313,8 @@ function page1(R){
   // KPI tiles
   var tw = (CW - 4 * 8) / 5, th = 88, x = M;
   var tiles = [
-    ["Symptoms", c.sx === null ? null : fmt(c.sx, 1), "/10", dlt(c.sx, p.sx, 1, "low"), c.sxN + " of 7 days rated"],
-    ["HIA severity", c.hia === null ? null : fmt(c.hia, 0), "/132", dlt(c.hia, p.hia, 0, "low"), c.hiaN === null ? "no full evaluations" : "avg " + fmt(c.hiaN, 0) + " of 22 symptoms"],
+    ["Symptoms present", c.hiaN === null ? null : fmt(c.hiaN, 1), "/" + HC.HIA_SYMPTOMS.length, dlt(c.hiaN, p.hiaN, 1, "low"), c.hiaDays + " of 7 days rated"],
+    ["HIA severity", c.hia === null ? null : fmt(c.hia, 0), "/" + HC.HIA_MAX, dlt(c.hia, p.hia, 0, "low"), c.hia === null ? "no full evaluations" : "daily average"],
     ["Sleep score", c.sleep === null ? null : fmt(c.sleep, 0), "/100", dlt(c.sleep, p.sleep, 0, "high"), c.sleep === null ? "Garmin score, not logged" : "Garmin score, nightly average"],
     ["Headache", c.headLogged ? String(c.headDays) : null, "/7 days", dlt(c.headDays, p.headDays, 0, "low"), c.headLogged ? "peak " + c.headMax + "/10 · painkillers " + c.pkDays + " day" + (c.pkDays === 1 ? "" : "s") : "not logged"],
     ["Overnight HRV", c.hrv === null ? null : fmt(c.hrv, 0), "ms", dlt(c.hrv, p.hrv, 0, "high"), c.rhr === null ? "resting HR not logged" : "resting HR " + fmt(c.rhr, 0) + " bpm"]
@@ -314,8 +333,8 @@ function page1(R){
   });
   y += 22;
   var rows = [
-    { label: "Symptoms /10", core: true, get: function(m){ return m.sx; }, cls: function(v){ return band(v); } },
-    { label: "HIA severity /132", get: function(m){ return m.hia; }, cls: function(v){ return band(v / 13.2); } },
+    { label: "Symptoms /" + HC.HIA_SYMPTOMS.length, core: true, get: function(m){ return m.hiaN; }, cls: function(v){ return band(v / HC.HIA_SYMPTOMS.length * 10); } },
+    { label: "HIA severity /" + HC.HIA_MAX, get: function(m){ return m.hia; }, cls: function(v){ return band(v / HC.HIA_MAX * 10); } },
     { label: "Sleep score /100", core: true, get: function(m){ return m.sleep; }, cls: function(v){ return v >= 80 ? "g" : v >= 60 ? "w" : "d"; } },
     { label: "Headache peak /10", get: function(m){ return m.headPeak; }, cls: function(v){ return v === 0 ? "g" : v <= 4 ? "w" : "d"; } },
     { label: "Painkiller doses", get: function(m){ return m.pk; }, cls: function(v){ return v === 0 ? "n" : "w"; } },
@@ -628,7 +647,7 @@ function page3(R){
     yr += 19;
   });
   if(anyTest){
-    var note = T2 ? "Latest set: " + HC.fmtDate(T2.date, { weekday: "short", day: "numeric", month: "short" }) + "." : "No test set logged this week.";
+    var note = T2 ? "This week's tests: " + T2.dates.map(function(d){ return HC.fmtDate(d, { weekday: "short", day: "numeric", month: "short" }); }).join(", ") + "." : "No tests logged this week.";
     txt(ctx, note, xR, yr + 14, { size: 8.5, color: C.faint });
     yr += 20;
   }
@@ -702,8 +721,7 @@ function buildText(R){
   L.push("*Weekly recovery report*" + (R.name ? " — " + R.name : ""));
   L.push(R.range);
   L.push("");
-  if(c.sx !== null) L.push("*Symptoms:* avg " + fmt(c.sx, 1) + "/10" + dtxt(c.sx, p.sx, 1, "low") + (c.hia !== null ? " · HIA severity avg " + fmt(c.hia, 0) + "/132" + dtxt(c.hia, p.hia, 0, "low") : ""));
-  else if(c.hia !== null) L.push("*Symptoms:* HIA severity avg " + fmt(c.hia, 0) + "/132" + dtxt(c.hia, p.hia, 0, "low"));
+  if(c.hia !== null) L.push("*Symptoms:* avg " + fmt(c.hiaN, 1) + "/" + HC.HIA_SYMPTOMS.length + " present" + dtxt(c.hiaN, p.hiaN, 1, "low") + " · HIA severity avg " + fmt(c.hia, 0) + "/" + HC.HIA_MAX + dtxt(c.hia, p.hia, 0, "low"));
   if(c.sleep !== null) L.push("*Sleep:* Garmin score avg " + fmt(c.sleep, 0) + "/100" + dtxt(c.sleep, p.sleep, 0, "high"));
   if(c.headLogged) L.push("*Headache:* " + c.headDays + "/7 days, worst " + c.headMax + "/10 · painkillers on " + c.pkDays + " day" + (c.pkDays === 1 ? "" : "s") + " (" + c.pkDoses + " dose" + (c.pkDoses === 1 ? "" : "s") + ")");
   var auto = [];
