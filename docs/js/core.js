@@ -146,6 +146,9 @@ HC.DEFAULT_PLAN = {
     3: ["The next stage of rehab, added by your clinician once you've shown you're not symptomatic"]
   },
   phase3Label: "My clinician has added the next stage",
+  // The ladder waits on step `step` (1-6) while the phases above run; 0 turns this off.
+  // It moves on once the plan reaches phase `afterPhase` and `label` is ticked.
+  ladderHold: { step: 2, afterPhase: 3, label: "My clinician has cleared me to move up the ladder", why: "Manual — this one is your clinician's call." },
   trainRule: "cardio under {ceiling} bpm. Symptoms must not rise during, after, or the next morning. Gym only in the afternoon after morning cardio — never straight after it.",
   gymNote: "Cardio in the morning, gym that afternoon. Follow your physio's rules on head position and exercise choice.",
   avoid: ["Heart rate above {ceiling} bpm", "Gym straight after cardio", "Screens in the 2 hours before bed (after {screensOff})"],
@@ -290,7 +293,7 @@ HC.EVENT_TAGS = [
 /* ---------------- state ---------------- */
 function defaultProfile(){
   var t = HC.todayKey();
-  return { hrLow: 100, hrHigh: 110, bandSince: t, planStart: t, bedtime: "22:00", allowedRise: 1, gymGapHours: 3, physioHeadUpDown: false, gymOverride: false, name: "" };
+  return { hrLow: 100, hrHigh: 110, bandSince: t, planStart: t, bedtime: "22:00", allowedRise: 1, gymGapHours: 3, physioHeadUpDown: false, gymOverride: false, ladderCleared: false, name: "" };
 }
 function defaultMeds(){ return []; } // meds are entered by the user (or come from the plan file)
 HC.defaultState = function(){
@@ -502,6 +505,14 @@ HC.planStatus = function(){
     stepUpReady: band.streak >= HC.STEP_DAYS_NEEDED && daysSinceBand >= HC.STEP_MIN_DAYS && quietWeek,
     gymUnlocked: gymUnlocked, okDaysAll: all.okDays
   };
+};
+
+// Keeps the ladder in step with the phases: held = it sits on the hold step whatever is stored.
+HC.ladderHold = function(){
+  var hold = HC.plan.ladderHold || {}, n = hold.step;
+  if(!(n >= 1 && n <= HC.LADDER_STEPS.length)) return { active: false, held: false };
+  var after = hold.afterPhase || 1, phaseOk = HC.planStatus().phase >= after;
+  return { active: true, held: !(phaseOk && HC.state.profile.ladderCleared), index: n - 1, afterPhase: after, phaseOk: phaseOk, label: hold.label, why: hold.why };
 };
 
 /* BCTT (Buffalo Concussion Treadmill Test) retest every 2 weeks */
